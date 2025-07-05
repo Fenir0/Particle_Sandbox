@@ -3,7 +3,11 @@ project(sandbox VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(SFML 2.5 COMPONENTS graphics audio REQUIRED)
-add_executable(sandbox main.cpp src/game.cpp)
+
+set(HEADERS include/game.hpp include/particle.hpp)
+set(SOURCE  main.cpp src/particle.cpp   src/game.cpp)
+
+add_executable(sandbox ${HEADERS} ${SOURCE})
 
 target_link_libraries(sandbox sfml-graphics sfml-audio)
 
