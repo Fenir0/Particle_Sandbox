@@ -2,6 +2,9 @@ A sandbox game using C++ and SFML
 
 Built with gcc (12.2.0) and CMake (3.25.1) on Debian 
 
+Use Left Mouse Button to place particles and choose particle type (WATER AND STONE NOT YET IMPLEMENTED)
+Use Right Mouse Button to remove particle
+
 1: extract anywhere (avoid non-latin letters in the path)
 
 2:
