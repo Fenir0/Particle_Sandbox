@@ -28,7 +28,7 @@ class Particle{
         
         Particle(ParticleType type = ParticleType::Air);
 
-        void Update(std::vector<Particle>& grid);
+        void Update(std::vector<Particle>& grid, int i);
 
         void setCoord(float pos_x, float pos_y);
         void setArgs(ParticleType type, ParticleState state, 
@@ -39,7 +39,7 @@ class Particle{
         std::vector<short>  getColor();
         std::pair<int, int> getCoord();
 
-        ParticleState getStateByType(ParticleType type);
+        static ParticleState      getStateByType(ParticleType type);
         static std::vector<short> getColorByType(ParticleType type);
 };
 

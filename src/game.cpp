@@ -1,6 +1,12 @@
 #include "../include/game.hpp"
+/*
+    SCREEN MANAGEMENT
+    DRAWING
+    UPDATE&RENDER
+*/
 
-    // Scaleable
+const int FPS = 30;
+    // Scaleable (not currently)
 const int PIXEL_SIZE = 16;
                         // default arg for vector<Particle>.resize() 
 
@@ -48,7 +54,7 @@ bool Game::isRunning() const{
 //
 // @brief Updates the image in back buffer
 void Game::update(){
-    window->setFramerateLimit(60);
+    window->setFramerateLimit(FPS);
     while(window->pollEvent(evt)){
         switch (evt.type)
             {
@@ -59,7 +65,7 @@ void Game::update(){
                 int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
                 int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
                 if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
-                    grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Sand, ParticleState::Solid, {230, 215, 160}, 0, 0.5);
+                    grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Sand, ParticleState::Solid, {230, 215, 160}, 0, 0.4);
                     grid[mx+my*GRID_WIDTH].setCoord(mx, my);
                 }
                         break;
@@ -67,7 +73,7 @@ void Game::update(){
     }
     
     for(int i = 0; i < grid.size(); i++) {
-        grid[i].Update(grid);
+        grid[i].Update(grid, i);
     }   
     particles.clear();
     for(int y = 0; y < GRID_HEIGHT; y++) {
