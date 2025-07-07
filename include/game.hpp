@@ -19,6 +19,12 @@ class Game{
 
         void initVar();
         void initWin();
+
+        void buttonDraw();
+
+        const sf::Color screenColor {123, 123, 123, 155};
+
+        ParticleType selectedType = ParticleType::Sand;
         
     public:
         Game();

@@ -7,8 +7,11 @@
 
 const int FPS = 30;
     // Scaleable (not currently)
-const int PIXEL_SIZE = 16;
-                        // default arg for vector<Particle>.resize() 
+const int PIXEL_SIZE = 12;
+
+float padding = PIXEL_SIZE*2;
+float buttonWidth = PIXEL_SIZE*9;
+float buttonHeight = PIXEL_SIZE*3;
 
 /*
     INITIALIZATION
@@ -59,16 +62,42 @@ void Game::update(){
         switch (evt.type)
             {
             case sf::Event::KeyPressed:
-                window->close(); 
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) selectedType = ParticleType::Sand;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) selectedType = ParticleType::Water;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) selectedType = ParticleType::Air;
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window->close();
                         break;
             case sf::Event::MouseButtonPressed:
                 int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
                 int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
-                if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
-                    grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Sand, ParticleState::Solid, {230, 215, 160}, 0, 0.4);
-                    grid[mx+my*GRID_WIDTH].setCoord(mx, my);
+                if(evt.mouseButton.button == sf::Mouse::Left){
+                    for(int i = 0; i < Particle::type_list.size(); i++){
+                        float x = (padding + i*(buttonWidth+padding))/PIXEL_SIZE;
+                        float y = padding/PIXEL_SIZE;
+
+                        if(mx >= x && mx <= x + buttonWidth/PIXEL_SIZE && 
+                        my >= y && my <= y + buttonHeight/PIXEL_SIZE){
+                            selectedType = Particle::type_list[i];
+                        }
+                    }
+                    if(my > (buttonHeight+padding)/PIXEL_SIZE){
+                        if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
+                            grid[mx+my*GRID_WIDTH].setArgs(selectedType, Particle::getStateByType(selectedType), 
+                                                                Particle::getColorByType(selectedType), 0, 0, 0);
+                            grid[mx+my*GRID_WIDTH].setCoord(mx, my);
+                        }
+                    }
                 }
-                        break;
+                else if(evt.mouseButton.button == sf::Mouse::Right){
+                    if(my > (buttonHeight+padding)/PIXEL_SIZE){
+                        if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
+                            grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Air, Particle::getStateByType(ParticleType::Air), 
+                                                                Particle::getColorByType(ParticleType::Air), 0, 0, 0);
+                            grid[mx+my*GRID_WIDTH].setCoord(mx, my);
+                        }
+                    }
+                }
+                break;
         }
     }
     
@@ -80,9 +109,9 @@ void Game::update(){
         for(int x = 0; x < GRID_WIDTH; x++) {
             Particle& pt = grid[x + y * GRID_WIDTH];
 
-            ParticleType  type      = pt.getType();
-            ParticleState state     = pt.getState();
-            std::pair<int, int> pxy = pt.getCoord();
+            ParticleType  type       = pt.getType();
+            ParticleState state      = pt.getState();
+            std::pair<int,int> pxy   = pt.getCoord();
             std::vector<short> color = pt.getColor();
             float px = pxy.first  * PIXEL_SIZE;
             float py = pxy.second * PIXEL_SIZE;
@@ -103,12 +132,43 @@ void Game::update(){
 //
 // @brief Swaps the buffers back<->front
 void Game::render(){
-    window->clear(sf::Color::Blue);
+    window->clear(screenColor); 
+    buttonDraw();
     sf::RectangleShape floorLine(sf::Vector2f(WIDTH, 2));
     floorLine.setPosition(0, HEIGHT - 2);
     floorLine.setFillColor(sf::Color::Red);
     window->draw(floorLine);
     window->draw(particles);
+
+
     window->display();
 }
 
+void Game::buttonDraw(){
+    sf::Font font;
+    font.loadFromFile("../assets/arial.ttf");
+
+    for(int i = 0; i < Particle::type_list.size(); i++){
+        sf::RectangleShape button(sf::Vector2f(buttonWidth, buttonHeight));
+        button.setPosition(padding+i*(buttonWidth+padding), padding);
+
+        if(selectedType == Particle::type_list[i]){
+            button.setFillColor(sf::Color(200, 200, 100));
+        }
+        else{
+            button.setFillColor(sf::Color(150, 150, 150));
+        }
+        button.setOutlineColor(sf::Color::Black);
+        button.setOutlineThickness(2);
+
+        sf::Text text;
+        text.setFont(font);
+        text.setString(Particle::names_list[i]);
+        text.setCharacterSize(16);
+        text.setFillColor(sf::Color::Black);
+        text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
+        window->draw(button);
+        window->draw(text);
+
+    }
+}
