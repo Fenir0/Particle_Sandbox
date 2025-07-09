@@ -82,8 +82,9 @@ void Game::update(){
                     }
                     if(my > (buttonHeight+padding)/PIXEL_SIZE){
                         if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
-                            grid[mx+my*GRID_WIDTH].setArgs(selectedType, Particle::getStateByType(selectedType), 
-                                                                Particle::getColorByType(selectedType), 0, 0, 0);
+                            grid[mx+my*GRID_WIDTH].setArgs(selectedType,
+                                 Particle::getStateByType(selectedType), 
+                                Particle::getColorByType(selectedType), 0, 0, 0, 0);
                             grid[mx+my*GRID_WIDTH].setCoord(mx, my);
                         }
                     }
@@ -91,8 +92,9 @@ void Game::update(){
                 else if(evt.mouseButton.button == sf::Mouse::Right){
                     if(my > (buttonHeight+padding)/PIXEL_SIZE){
                         if(mx >= 0 && mx < GRID_WIDTH && my >= 0 && my < GRID_HEIGHT){
-                            grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Air, Particle::getStateByType(ParticleType::Air), 
-                                                                Particle::getColorByType(ParticleType::Air), 0, 0, 0);
+                            grid[mx+my*GRID_WIDTH].setArgs(ParticleType::Air, 
+                                Particle::getStateByType(ParticleType::Air), 
+                                Particle::getColorByType(ParticleType::Air), 0, 0, 0, 0);
                             grid[mx+my*GRID_WIDTH].setCoord(mx, my);
                         }
                     }
@@ -111,7 +113,7 @@ void Game::update(){
 
             ParticleType  type       = pt.getType();
             ParticleState state      = pt.getState();
-            std::pair<int,int> pxy   = pt.getCoord();
+            std::pair<float,float> pxy   = pt.getCoord();
             std::vector<short> color = pt.getColor();
             float px = pxy.first  * PIXEL_SIZE;
             float py = pxy.second * PIXEL_SIZE;
