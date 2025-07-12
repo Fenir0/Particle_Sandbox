@@ -2,7 +2,7 @@
 #define GAME
 
 #include <SFML/Graphics.hpp>
-#include "particle.hpp" 
+#include "update.hpp" 
 
 class Game{
     private:
@@ -12,20 +12,33 @@ class Game{
         sf::RenderWindow *window;
         sf::Event            evt;
         sf::VideoMode         vm;
+        sf::Font            font;
+
+        unsigned int particleCount;
 
         std::vector<sf::Uint8>  pxs; // pixels
+
         std::vector<Particle>  grid; // simulation
         sf::VertexArray   particles;
 
         void initVar();
         void initWin();
 
-        void buttonDraw();
+        int borderSize;
+
+        void drawUI();
+        void drawButton();
+        void drawBorder();
+        void calculateWindowSize();
+        void updateUIScaling();
 
         const sf::Color screenColor {123, 123, 123, 155};
 
         ParticleType selectedType = ParticleType::Sand;
-        
+        int brushSize;
+
+        void placeParticleOnScene(int mx, int my, ParticleType type);
+        void mouseInput();
     public:
         Game();
         ~Game();

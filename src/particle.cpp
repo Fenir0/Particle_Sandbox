@@ -8,15 +8,15 @@ const float Particle::STONE_FRICTION     = 0.6f;
 const float Particle::SAND_FRICTION      = 0.7f;
 const float Particle::GRAVITATIONAL_PULL = 0.2f;
 
-const std::vector<std::string> Particle::names_list {"Sand", "Water", "Air", "Water"};
+const std::vector<std::string> Particle::names_list {"Sand", "Water", "Air", "Stone"};
 const std::vector<ParticleType> Particle::type_list {ParticleType::Sand, ParticleType::Water,
                 ParticleType::Air, ParticleType::Stone};
 
 const std::vector<std::vector<short>> Particle::colorSand{
     {230, 215, 160},{204, 191, 142},{179, 169, 130},{230, 210, 138},{173, 158, 104},
     {242, 206, 134},{236, 211, 135},{244, 223, 146},{209, 184, 110},{187, 176, 136}};
-const std::vector<std::vector<short>> Particle::colorWater{{230, 215, 160}};
-const std::vector<std::vector<short>> Particle::colorStone{{230, 215, 160}};
+const std::vector<std::vector<short>> Particle::colorWater{{102, 143, 220}};
+const std::vector<std::vector<short>> Particle::colorStone{{84 ,  88,  95}};
 
 Particle::Particle(ParticleType type){
     this->type = type;
@@ -38,9 +38,9 @@ std::vector<short> Particle::getColorByType(ParticleType type){
         r = rand() % 10;
         return colorSand[r];
     case ParticleType::Water:
-        return {102, 143, 220};
+        return colorWater[0];
     case ParticleType::Stone:
-        return {111, 118, 131};
+        return colorStone[0];
     }
     return {0, 0, 0};
 }
@@ -102,8 +102,9 @@ void Particle::Update(std::vector<Particle>& grid, int i){
             */
     switch (type)
     {
-    case ParticleType::Sand:  Update::update_SAND(*this, grid, i); break;
+    case ParticleType::Sand:  Update::update_SAND (*this, grid, i); break;
     case ParticleType::Water: Update::update_WATER(*this, grid, i); break;
+    case ParticleType::Stone: Update::update_STONE(*this, grid, i); break;
     }
 
 }

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <random>
 
 enum class ParticleType {Air, Sand, Water, Stone};
 enum class ParticleState {Solid, Fluid, Gas};

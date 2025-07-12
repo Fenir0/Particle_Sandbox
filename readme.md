@@ -2,8 +2,10 @@ A sandbox game using C++ and SFML
 
 Built with gcc (12.2.0) and CMake (3.25.1) on Debian 
 
-Use Left Mouse Button to place particles and choose particle type (WATER AND STONE NOT YET IMPLEMENTED)
+Use Left Mouse Button to place particles and choose particle type
 Use Right Mouse Button to remove particle
+Use    Z and X to scale down/up (also possible by grabbing window edges)
+Use Down and Up to regulate brush size
 
 1: extract anywhere (avoid non-latin letters in the path)
 
@@ -12,6 +14,7 @@ Use Right Mouse Button to remove particle
 VSCode:
 Make sure that CMake and C++ extensions are installed
 Open the project directory from within the app (ctrl+k ctrl+o) and build using gcc 
+Run with CTRL+SHIFT+F5
 
 Linux:
 
@@ -26,4 +29,7 @@ then run the app via
 ```sh
 ./build/sandbox
 ```
+
+Example:
+![alt text](example.png)
 
