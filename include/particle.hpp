@@ -8,8 +8,8 @@
 #include <string>
 #include <random>
 
-enum class ParticleType {Air, Sand, Water, Stone};
-enum class ParticleState {Solid, Fluid, Gas};
+enum class ParticleType {Smoke, Sand, Water, Stone, None};
+enum class ParticleState {Solid, Fluid, Gas, None};
 
 extern int GRID_WIDTH;
 extern int GRID_HEIGHT;
@@ -42,7 +42,7 @@ class Particle{
         static const float STONE_FRICTION;
         static const float SAND_FRICTION;
         static const float GRAVITATIONAL_PULL;
-        Particle(ParticleType type = ParticleType::Air);
+        Particle(ParticleType type = ParticleType::None);
 
         void Update(std::vector<Particle>& grid, int i);
 
@@ -62,6 +62,7 @@ class Particle{
         static const std::vector<std::vector<short>> colorSand;
         static const std::vector<std::vector<short>> colorWater;
         static const std::vector<std::vector<short>> colorStone;
+        static const std::vector<std::vector<short>> colorSmoke;
 
         static ParticleState      getStateByType(ParticleType type);
         static std::vector<short> getColorByType(ParticleType type);

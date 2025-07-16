@@ -8,15 +8,21 @@ const float Particle::STONE_FRICTION     = 0.6f;
 const float Particle::SAND_FRICTION      = 0.7f;
 const float Particle::GRAVITATIONAL_PULL = 0.2f;
 
-const std::vector<std::string> Particle::names_list {"Sand", "Water", "Air", "Stone"};
+const std::vector<std::string> Particle::names_list {"Sand", "Water", "Smoke", "Stone"};
 const std::vector<ParticleType> Particle::type_list {ParticleType::Sand, ParticleType::Water,
-                ParticleType::Air, ParticleType::Stone};
+                ParticleType::Smoke, ParticleType::Stone};
 
 const std::vector<std::vector<short>> Particle::colorSand{
     {230, 215, 160},{204, 191, 142},{179, 169, 130},{230, 210, 138},{173, 158, 104},
     {242, 206, 134},{236, 211, 135},{244, 223, 146},{209, 184, 110},{187, 176, 136}};
 const std::vector<std::vector<short>> Particle::colorWater{{102, 143, 220}};
 const std::vector<std::vector<short>> Particle::colorStone{{84 ,  88,  95}};
+const std::vector<std::vector<short>> Particle::colorSmoke{
+    { 15,  15,  15},{ 0,  0,  0},{ 85,  85,  85},{ 84,  88,  95}, { 40,  40, 40},
+    {60, 50, 50},{0, 0, 0}, {105,  88, 88},
+    { 60,  60,  60},{33, 37, 41},{ 89,  89,  89},{127, 127, 127},
+    { 52,  58,  64},{73, 80, 87},{108, 117, 125}
+};
 
 Particle::Particle(ParticleType type){
     this->type = type;
@@ -32,10 +38,13 @@ std::vector<short> Particle::getColorByType(ParticleType type){
     int r;
     switch (type)
     {
-    case ParticleType::Air:
+    case ParticleType::Smoke:
+        r = rand() % colorSmoke.size();
+        return colorSmoke[r];
+    case ParticleType::None:
         return {123, 123, 123};
     case ParticleType::Sand:
-        r = rand() % 10;
+        r = rand() % colorSand.size();
         return colorSand[r];
     case ParticleType::Water:
         return colorWater[0];
@@ -47,7 +56,9 @@ std::vector<short> Particle::getColorByType(ParticleType type){
 ParticleState      Particle::getStateByType(ParticleType type){
     switch (type)
     {
-    case ParticleType::Air:
+    case ParticleType::None:
+        return ParticleState::None;
+    case ParticleType::Smoke:
         return ParticleState::Gas;
     case ParticleType::Sand:
         return ParticleState::Solid;
@@ -56,7 +67,7 @@ ParticleState      Particle::getStateByType(ParticleType type){
     case ParticleType::Stone:
         return ParticleState::Solid;
     }
-    return ParticleState::Gas;
+    return ParticleState::None;
 }
 
 void Particle::setCoord(float pos_x, float pos_y){
@@ -92,19 +103,12 @@ std::pair<float, float> Particle::getCoord(){
 
 
 void Particle::Update(std::vector<Particle>& grid, int i){
-            /*
-            | int   |     float   |
-            old_pos | pos_x, pos_y = current position
-            new_pos | new_x, new_y = new position after 1 tick
-
-            if old_pos != new_pos => change visible position 
-            swap(grid[old_pos], grid[new_pos])
-            */
     switch (type)
     {
     case ParticleType::Sand:  Update::update_SAND (*this, grid, i); break;
     case ParticleType::Water: Update::update_WATER(*this, grid, i); break;
     case ParticleType::Stone: Update::update_STONE(*this, grid, i); break;
+    case ParticleType::Smoke: Update::update_SMOKE(*this, grid, i); break;
     }
 
 }
