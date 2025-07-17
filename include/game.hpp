@@ -39,6 +39,12 @@ class Game{
 
         void placeParticleOnScene(int mx, int my, ParticleType type);
         void mouseInput();
+
+        bool checkIfHoverSelect(int i);
+        void selectHover       (int i);
+        bool checkIfStateSelect(int i);
+        void hoverDisable();
+        void stateDisable();
     public:
         Game();
         ~Game();

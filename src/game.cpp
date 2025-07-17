@@ -26,6 +26,12 @@ unsigned int defaultCharSize = 14;
 
 bool clearSelect = false;
 
+bool SolidSelect = false;
+bool FluidSelect = false;
+bool GasSelect   = false;
+bool SolidHoverSelect = false;
+bool FluidHoverSelect = false;
+bool GasHoverSelect   = false;
 
 void Game::calculateWindowSize(){
     updateUIScaling();
@@ -79,10 +85,9 @@ bool Game::isRunning() const{
 }
 
 /*
-   Window managing
+   Particle placement
 */
 
-// Left to draw, right to erase
 void Game::mouseInput(){
     if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
         sf::Vector2i currPos = sf::Mouse::getPosition(*window);
@@ -131,8 +136,9 @@ void Game::placeParticleOnScene(int mx, int my, ParticleType type) {
     }
 }
 
-//
-// @brief Updates the image in back buffer
+/*
+    Main event loop
+*/
 void Game::update(){
     clearSelect = false;
     window->setFramerateLimit(FPS);
@@ -140,8 +146,8 @@ void Game::update(){
         switch (evt.type)
             {
             case sf::Event::KeyPressed:
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))   brushSize = std::min(10, brushSize+1);
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) brushSize = std::max(0 , brushSize-1);
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))    brushSize = std::min(10, brushSize+1);
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))  brushSize = std::max(0 , brushSize-1);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) Update::freezeSelect = !Update::freezeSelect;
                 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)){
@@ -151,7 +157,6 @@ void Game::update(){
                     window->setSize(sf::Vector2u(WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS));
                     window->setView(sf::View(sf::FloatRect(0, 0, WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS)));
                 }
-
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)){
                     PIXEL_SIZE = std::max(PIXEL_SIZE_MIN, PIXEL_SIZE - 1);
                     defaultCharSize--;
@@ -162,43 +167,62 @@ void Game::update(){
 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window->close();
                         break;
+                        
             case sf::Event::MouseButtonPressed:{
                 int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
                 int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
                 if(evt.mouseButton.button == sf::Mouse::Left){
-                    for(int i = 0; i < Particle::type_list.size(); i++){
-                        float x = (padding + i*(buttonWidth+padding))/PIXEL_SIZE;
-                        float y = padding/PIXEL_SIZE;
+                    for(int i1 = 0; i1 < Particle::states_list.size(); i1++){
+                        float xs = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
+                        float ys = padding/PIXEL_SIZE;
+                        if(checkIfHoverSelect(i1)){
+                            for(int i2 = 0; i2 < Particle::type_list[i1].size(); i2++){
+                                float x = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
+                                float y = (padding + i2*buttonHeight)/PIXEL_SIZE;
 
-                        if(mx >= x && mx <= x + buttonWidth /PIXEL_SIZE && 
-                           my >= y && my <= y + buttonHeight/PIXEL_SIZE){
-                            selectedType = Particle::type_list[i];
+                                if(mx >= x && mx <= x + buttonWidth /PIXEL_SIZE && 
+                                my >= y && my <= y + buttonHeight/PIXEL_SIZE){
+                                    selectedType = Particle::types[i1][i2];
+                                    stateDisable();
+                                    hoverDisable();
+                                    if(i1 == 0) SolidSelect = true;
+                                    if(i1 == 1) FluidSelect = true;
+                                    if(i1 == 2) GasSelect   = true;
+                                } else{
+                                    hoverDisable();
+                                }
+                            }
+                        }
+                        // type selected, menu not yet opened
+                        else if(mx >= xs && mx <= xs + buttonWidth /PIXEL_SIZE && 
+                                my >= ys && my <= ys + buttonHeight/PIXEL_SIZE){
+                            hoverDisable();
+                            stateDisable();
+                            selectHover(i1);
+                            continue;
                         }
                     }
                 }
-                float x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*3)/PIXEL_SIZE;
-                float y = padding/PIXEL_SIZE;
                 
                 // CLEAR ALL
+                float x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*3)/PIXEL_SIZE;
+                float y = padding/PIXEL_SIZE;
                 if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
                     my >= y && my < y + buttonHeight/PIXEL_SIZE){
                     grid.clear();
                     grid.resize(GRID_HEIGHT*GRID_WIDTH);
                     clearSelect = true;
                 }
+                
+                // FREEZE ALL
                 x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5)/PIXEL_SIZE;
                 y = padding/PIXEL_SIZE;
-                // FREEZE ALL
                 if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
                     my >= y && my < y + buttonHeight/PIXEL_SIZE){
                     Update::freezeSelect = !Update::freezeSelect;
                 }
                 break;
             }
-            // case sf::Event::Resized:
-            //     sf::FloatRect visibleArea(0, 0, evt.size.width, evt.size.height);
-            //     window->setView(sf::View(visibleArea));
-            //     break;
         }
     }
     mouseInput();
@@ -228,19 +252,65 @@ void Game::update(){
             particles.append(sf::Vertex({px, py + PIXEL_SIZE}, c));                // bottom-left
         }
     }   
-
 }
 
-//
-// @brief Swaps the buffers back<->front
+/*
+    Selection checkers and disablers
+*/
+bool Game::checkIfHoverSelect(int i){
+    if(i == 0 && SolidHoverSelect) return true;
+    if(i == 1 && FluidHoverSelect) return true;
+    if(i == 2 && GasHoverSelect  ) return true;
+    return false;
+}
+bool Game::checkIfStateSelect(int i){
+    if(i == 0 && SolidSelect) return true;
+    if(i == 1 && FluidSelect) return true;
+    if(i == 2 && GasSelect  ) return true;
+    return false;
+}
+
+void Game::hoverDisable(){
+    SolidHoverSelect = false;
+    FluidHoverSelect = false;
+    GasHoverSelect   = false;
+}
+void Game::stateDisable(){
+    SolidSelect = false;
+    FluidSelect = false;
+    GasSelect   = false;
+}
+void Game::selectHover(int i){
+    switch (i)
+    {
+    case 0:
+        SolidHoverSelect = true;
+        SolidSelect      = true;
+        return;
+    
+    case 1:
+        FluidHoverSelect = true;
+        FluidSelect      = true;
+        return;
+    
+    case 2:
+        GasHoverSelect = true;
+        GasSelect      = true;
+        return;
+    }
+}
+
+/*
+    Draw
+*/
+
 void Game::render(){
    // printf("%d\n", particleCount);
     window->clear(screenColor); 
-    drawUI();
     window->draw(particles);
+    drawUI();
     window->display();
 }
-
 void Game::updateUIScaling() {
     padding      = PIXEL_SIZE * 2;
     buttonWidth  = PIXEL_SIZE * 5;
@@ -255,9 +325,10 @@ void Game::drawUI(){
     brushText.setCharacterSize(defaultCharSize);
     brushText.setFillColor(sf::Color::White);
     brushText.setPosition(WINDOW_WIDTH_PXS-80, UI_HEIGHT_PXS - 20);
+
     window->draw(brushText);
-    drawButton();
     drawBorder();
+    drawButton();
 }
 
 void Game::drawBorder(){
@@ -288,29 +359,61 @@ void Game::drawBorder(){
 }
 
 void Game::drawButton(){
-    for(int i = 0; i < Particle::type_list.size(); i++){
-        sf::RectangleShape button(sf::Vector2f(buttonWidth, buttonHeight));
-        button.setPosition(padding+i*(buttonWidth+padding), padding);
+    for(int i1 = 0; i1 < Particle::states_list.size(); i1++){
+        // hover menu closed
+        if(!checkIfHoverSelect(i1)){
+            sf::RectangleShape button(sf::Vector2f(buttonWidth, buttonHeight));
+            button.setPosition(padding+i1*(buttonWidth+padding), padding);
 
-        if(selectedType == Particle::type_list[i]){
-            button.setFillColor(sf::Color(200, 200, 100));
-        }
-        else{
-            button.setFillColor(sf::Color(150, 150, 150));
-        }
-        button.setOutlineColor(sf::Color::Black);
-        button.setOutlineThickness(2);
+            if(checkIfStateSelect(i1)) button.setFillColor(sf::Color(200, 200, 100));
+            else                       button.setFillColor(sf::Color(150, 150, 150));
+            button.setOutlineColor(sf::Color::Black);
+            button.setOutlineThickness(2);
 
-        sf::Text text;
-        text.setFont(font);
-        text.setString(Particle::names_list[i]);
-        text.setCharacterSize(defaultCharSize);
-        text.setFillColor(sf::Color::Black);
-        text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
-        window->draw(button);
-        window->draw(text);
+            sf::Text text;
+            text.setFont(font);
+            if(checkIfStateSelect(i1))
+                text.setString(Particle::getTypeAsString(selectedType));
+
+            else  
+                text.setString(Particle::states_list[i1]);
+
+            text.setCharacterSize(defaultCharSize);
+            text.setFillColor(sf::Color::Black);
+            text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
+
+            window->draw(button);
+            window->draw(text);
+            continue;
+        }
+        // Hover menu opened
+        for(int i2 = 0; i2 < Particle::type_list[i1].size(); i2++){
+            sf::RectangleShape button(sf::Vector2f(buttonWidth, buttonHeight));
+            button.setPosition(padding+i1*(buttonWidth+padding), padding+i2*buttonHeight);
+
+            if(Particle::types[i1][i2] == selectedType){
+                button.setFillColor(sf::Color(200, 200, 100));
+            }
+            else{
+                button.setFillColor(sf::Color(150, 150, 150));
+            }
+            button.setOutlineColor(sf::Color::Black);
+            button.setOutlineThickness(2);
+
+            sf::Text text;
+            text.setFont(font);
+            text.setString(Particle::type_list[i1][i2]);
+            text.setCharacterSize(defaultCharSize);
+            text.setFillColor(sf::Color::Black);
+            text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
+            window->draw(button);
+            window->draw(text);
+        }
     }
-    // CLEAR ALL
+    /*
+        * * * CLEAR ALL  * * *
+    */
+    {
     sf::RectangleShape buttonClearAll(sf::Vector2f(buttonWidth*1.6, buttonHeight));
     buttonClearAll.setPosition(WINDOW_WIDTH_PXS-(buttonWidth+padding)*3, padding);
     if(clearSelect)buttonClearAll.setFillColor(sf::Color(200, 200, 100));
@@ -326,8 +429,12 @@ void Game::drawButton(){
     textClearAll.setPosition(buttonClearAll.getPosition().x + 10, buttonClearAll.getPosition().y + 10);
     window->draw(buttonClearAll);
     window->draw(textClearAll);
+    }
 
-    // FREEZE ALL
+    /*
+        * * *FREEZE ALL * * *
+    */
+    {
     sf::RectangleShape buttonFreezeAll(sf::Vector2f(buttonWidth*1.6, buttonHeight));
     buttonFreezeAll.setPosition(WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5, padding);
     if(Update::freezeSelect) buttonFreezeAll.setFillColor(sf::Color(200, 200, 100));
@@ -342,7 +449,7 @@ void Game::drawButton(){
     textFreezeAll.setFillColor(sf::Color::Black);
     textFreezeAll.setPosition(buttonFreezeAll.getPosition().x + 10, buttonFreezeAll.getPosition().y + 10);
     window->draw(buttonFreezeAll);
-    window->draw(textFreezeAll);
+    window->draw(textFreezeAll);}   
     
     /*
         BOTTOM BUTTONS

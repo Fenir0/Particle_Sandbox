@@ -27,7 +27,7 @@ class Particle{
         ParticleState state;
         std::vector<short> color {0, 0, 0};
 
-        float mass;    // pressure from above
+        float pressure;    // pressure from above
         float inertia_x;  // kinda abstract term here but fits 
         float inertia_y; 
 
@@ -50,15 +50,16 @@ class Particle{
         void setArgs(ParticleType type, ParticleState state, 
                         std::vector<short> color, 
                         float vel_x, float vel_y, 
-                        float mass, float inertia);
+                        float pressure, float inertia);
 
         ParticleType        getType();
         ParticleState       getState();
         std::vector<short>  getColor();
         std::pair<float, float> getCoord();
 
-        static const std::vector<ParticleType>  type_list;
-        static const std::vector<std::string>  names_list;
+        static const std::vector<std::vector<ParticleType>> types;
+        static const std::vector<std::vector<std::string>>  type_list;
+        static const std::vector<std::string>               states_list;
         static const std::vector<std::vector<short>> colorSand;
         static const std::vector<std::vector<short>> colorWater;
         static const std::vector<std::vector<short>> colorStone;
@@ -66,7 +67,10 @@ class Particle{
 
         static ParticleState      getStateByType(ParticleType type);
         static std::vector<short> getColorByType(ParticleType type);
-        static float              getMassByType (ParticleType type);
+        static float              getPressureByType (ParticleType type);
+        static std::string        getTypeAsString(ParticleType type);
+
+        static bool isTypeAndState(ParticleType type, ParticleState state);
 };
 
 #endif
