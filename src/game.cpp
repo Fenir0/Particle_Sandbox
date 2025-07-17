@@ -199,7 +199,6 @@ void Game::update(){
                             hoverDisable();
                             stateDisable();
                             selectHover(i1);
-                            continue;
                         }
                     }
                 }
@@ -380,7 +379,7 @@ void Game::drawButton(){
 
             text.setCharacterSize(defaultCharSize);
             text.setFillColor(sf::Color::Black);
-            text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
+            text.setPosition(button.getPosition().x + PIXEL_SIZE/2, button.getPosition().y + PIXEL_SIZE/2);
 
             window->draw(button);
             window->draw(text);
@@ -405,7 +404,7 @@ void Game::drawButton(){
             text.setString(Particle::type_list[i1][i2]);
             text.setCharacterSize(defaultCharSize);
             text.setFillColor(sf::Color::Black);
-            text.setPosition(button.getPosition().x + 10, button.getPosition().y + 10);
+            text.setPosition(button.getPosition().x + PIXEL_SIZE/2, button.getPosition().y + PIXEL_SIZE/2);
             window->draw(button);
             window->draw(text);
         }

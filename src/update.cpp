@@ -53,11 +53,23 @@ void zeroOut(Particle& self){
 // 0.1 ... 0.9
 float simulationSpeed = 0.5f;
 
+int waterCoolDown = 2;
+int oilCoolDown   = 3;
+int sandCoolDown  = 1;
 //
 // @brief Clamp to 1 tile per 1 frame
-float inertia_to_movement(float inertia) {
-    if (inertia > simulationSpeed) return simulationSpeed;
-    if (inertia < -simulationSpeed) return -simulationSpeed;
+float inertia_to_movement(float inertia, ParticleType type) {
+    int kx;
+    switch (type)
+    {
+    case ParticleType::Sand : kx = 1.f; break;
+    case ParticleType::Oil  : kx = 0.3f; break;
+    case ParticleType::Water: kx = 0.8f; break;
+    case ParticleType::Smoke: kx = 1.f; break;
+
+    }
+    if (inertia > simulationSpeed)  return simulationSpeed*kx;
+    if (inertia < -simulationSpeed) return -simulationSpeed*kx;
     if (std::abs(inertia) < 0.1f) return 0.0f; // dead zone
     return inertia;
 }
@@ -97,20 +109,28 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
 
 
     // next position                                             // some noice for less idealistic moves
-    float new_x = self.pos_x + inertia_to_movement(self.inertia_x) + self.vel_x*(rand()%3)/5.f;
-    float new_y = self.pos_y + inertia_to_movement(self.inertia_y) + self.vel_y*(rand()%3)/5.f;
+    float new_x = self.pos_x + inertia_to_movement(self.inertia_x, self.type) + self.vel_x*(rand()%3)/5.f;
+    float new_y = self.pos_y + inertia_to_movement(self.inertia_y, self.type) + self.vel_y*(rand()%3)/5.f;
     int new_pos = getGridIndex(new_x, new_y);
 
     self.vel_x *= 0.7f;
     // Get the direction (stable if not moved/not possible to move)
     Movement mv = getMovement(new_pos, srd);
+    
+    if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Water ||
+       isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Water ||
+       isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Water ||
+       isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Water 
+    ){
+        self.setArgs(ParticleType::WetSand, self.state, Particle::getColorByType(ParticleType::WetSand), self.vel_x, self.vel_y, self.pressure, 0);
+    }
 
     // velocity not enough to change position (yet)
     if(new_pos > -1 && mv == Movement::STABLE){ 
         self.vel_x = 0;
         self.vel_y = 0;
-        self.pos_x += inertia_to_movement(self.inertia_x);
-        self.pos_y += inertia_to_movement(self.inertia_y);
+        self.pos_x += inertia_to_movement(self.inertia_x, self.type);
+        self.pos_y += inertia_to_movement(self.inertia_y, self.type);
         
         // sand might collapse when under pressure
         if((srd.diag_bl >= 0 || srd.diag_br >= 0) && srd.below >= 0 && grid[srd.below].state == ParticleState::Solid){
@@ -171,15 +191,15 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
             self.pos_y = std::floor(self.pos_y);
             if(mv == Movement::BELOW){
                 int next_move = rand()%3;
-                if(next_move == 0 && new_x > 1 && new_y < GRID_HEIGHT - 1 && 
-                    srd.diag_bl >= 0 && grid[srd.diag_bl].state != ParticleState::Solid){
+                if(next_move == 0 && new_x > 1 && new_y < GRID_HEIGHT - 1
+                     && isGasOrNone(grid, srd.diag_bl) && isGasOrNone(grid, srd.left) ){
                     self.inertia_x = - 0.01f;
                     self.vel_y = 0;
                     self.inertia_y /= 3;
                     return;
                 }
-                else if(next_move == 1 && new_x < GRID_WIDTH - 2 && new_y < GRID_HEIGHT - 1 && 
-                            srd.diag_br >= 0 && grid[srd.diag_br].state != ParticleState::Solid){
+                else if(next_move == 1 && new_x < GRID_WIDTH - 2 && new_y < GRID_HEIGHT - 1  
+                        && isGasOrNone(grid, srd.diag_br) && isGasOrNone(grid, srd.right)){
                     self.inertia_x = 0.01f;
                     self.vel_y = 0;
                     self.inertia_y /= 2;
@@ -201,10 +221,10 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
                 return;
             }
             else if(mv == Movement::DG_BL){
-                if(grid[srd.below].state != ParticleState::Solid){
+                if(isGasOrNone(grid, srd.below)){
                     new_pos+=1;
                 }
-                else if(grid[srd.left].state != ParticleState::Solid){
+                else if(isGasOrNone(grid, srd.left)){
                     new_pos -= GRID_WIDTH;
                 }
                 swapper(self.pos_x, self.pos_y, 
@@ -213,14 +233,14 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
                 return;
             }
             else if(mv == Movement::DG_BR){
-                if(grid[srd.below].state != ParticleState::Solid){
+                if(isGasOrNone(grid, srd.below)){
                     new_pos-=1;
                     swapper(self.pos_x, self.pos_y, 
                         new_x,      new_y,    grid);
                     zeroOut(self);
                     return;
                 }
-                else if(grid[srd.right].state != ParticleState::Solid){
+                else if(isGasOrNone(grid, srd.right)){
                     new_pos -= GRID_WIDTH;
                     swapper(self.pos_x, self.pos_y, 
                         new_x,      new_y,    grid);
@@ -237,8 +257,146 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
         return;
 }
 
+void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){ 
+    // In case the old position is out of borders
+    adjustForBorders(self);
+
+    // Current position and surroundings
+    int old_pos = getGridIndex(self.pos_x, self.pos_y);
+
+    // Coordinates of surrounding tiles
+    Surroundings srd (std::floor(self.pos_x),std::floor(self.pos_y));
+
+    // Applied forces
+    getPressure(srd, self, grid, i);
+    getGravity (srd, self, grid, i);
+    getFriction(srd, self, grid, i);
+
+    self.inertia_x += self.vel_x;
+    self.inertia_y += self.vel_y; 
+
+
+    // next position                                             // some noice for less idealistic moves
+    float new_x = self.pos_x + inertia_to_movement(self.inertia_x, self.type) + self.vel_x*(rand()%3)/5.f;
+    float new_y = self.pos_y + inertia_to_movement(self.inertia_y, self.type) + self.vel_y*(rand()%3)/5.f;
+    int new_pos = getGridIndex(new_x, new_y);
+
+    self.vel_x *= 0.7f;
+    // Get the direction (stable if not moved/not possible to move)
+    Movement mv = getMovement(new_pos, srd);
+
+    // velocity not enough to change position (yet)
+    if(new_pos > -1 && mv == Movement::STABLE){ 
+        self.vel_x = 0;
+        self.vel_y = 0;
+        self.pos_x += inertia_to_movement(self.inertia_x, self.type);
+        self.pos_y += inertia_to_movement(self.inertia_y, self.type);
+        
+        
+        return;
+    }
+    if (new_pos < 0) {
+        zeroOut(self);
+        return;
+    }
+    switch (grid[new_pos].state)
+        { // COLLIDING WITH GAS OR NONE
+        case ParticleState::None :
+        case ParticleState::Gas :
+            self.vel_x = 0; 
+            self.vel_y = 0; 
+            grid[new_pos].setCoord(self.pos_x, self.pos_y);
+            grid[old_pos].setCoord(new_x, new_y);
+            std::swap(grid[old_pos], grid[new_pos]);
+            return;
+
+                // COLLIDING WITH FLUID 
+        case ParticleState::Fluid :
+            self.vel_x = 0;
+            self.vel_y = 0;
+            self.inertia_y *= 0.7f;
+            self.inertia_x *= 0.7f;
+            swapper(self.pos_x, self.pos_y, 
+                         new_x,      new_y,    grid);
+            return;
+
+                // COLLIDING WITH SOLID
+        case ParticleState::Solid:
+            self.pos_x = std::floor(self.pos_x);
+            self.pos_y = std::floor(self.pos_y);
+            if(mv == Movement::BELOW){
+                int next_move = rand()%3;
+                if(next_move == 0 && new_x > 1 && new_y < GRID_HEIGHT - 1
+                     && isGasOrNone(grid, srd.diag_bl) && isGasOrNone(grid, srd.left) ){
+                    self.inertia_x = - 0.01f;
+                    self.vel_y = 0;
+                    self.inertia_y /= 3;
+                    return;
+                }
+                else if(next_move == 1 && new_x < GRID_WIDTH - 2 && new_y < GRID_HEIGHT - 1  
+                        && isGasOrNone(grid, srd.diag_br) && isGasOrNone(grid, srd.right)){
+                    self.inertia_x = 0.01f;
+                    self.vel_y = 0;
+                    self.inertia_y /= 2;
+                    return;
+                }
+                zeroOut(self);
+                return;
+            }
+            else if(mv == Movement::LEFT){
+                grid[new_pos].vel_x += self.vel_x*0.5;
+                self.inertia_x = -self.inertia_x * 0.5f;
+                zeroOut(self);
+                return;
+            }
+            else if(mv == Movement::RIGHT){
+                grid[new_pos].vel_x += self.vel_x*0.5;
+                self.inertia_x = -self.inertia_x * 0.5f;
+                zeroOut(self);
+                return;
+            }
+            else if(mv == Movement::DG_BL){
+                if(isGasOrNone(grid, srd.below)){
+                    new_pos+=1;
+                }
+                else if(isGasOrNone(grid, srd.left)){
+                    new_pos -= GRID_WIDTH;
+                }
+                swapper(self.pos_x, self.pos_y, 
+                        new_x,      new_y,    grid);
+                zeroOut(self);
+                return;
+            }
+            else if(mv == Movement::DG_BR){
+                if(isGasOrNone(grid, srd.below)){
+                    new_pos-=1;
+                    swapper(self.pos_x, self.pos_y, 
+                        new_x,      new_y,    grid);
+                    zeroOut(self);
+                    return;
+                }
+                else if(isGasOrNone(grid, srd.right)){
+                    new_pos -= GRID_WIDTH;
+                    swapper(self.pos_x, self.pos_y, 
+                        new_x,      new_y,    grid);
+                    zeroOut(self);
+                    return;
+                }
+                zeroOut(self);
+                return;
+            }
+            zeroOut(self);
+            return;
+        }
+        zeroOut(self);
+        return;
+}
+
+
 void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){ 
     // In case the old position is out of borders
+    self.cooldown+=1;
+    self.cooldown*=7;
     adjustForBorders(self);
 
     // Current position and surroundings
@@ -313,7 +471,7 @@ void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){
     if(isGasOrNone(grid, srd.below)){
         possibleMoves.emplace_back(3);
     }
-    if(possibleMoves.size() > 3){
+    if(possibleMoves.size() > 3 && self.cooldown%3==2){
         int r = rand()%possibleMoves.size();
         switch (r)
         {
@@ -339,6 +497,9 @@ void Update::update_STONE(Particle &self, std::vector<Particle> &grid, int i){
 }
 
 void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
+    self.cooldown -= 1;
+    if(self.cooldown > 0) 
+        return;
     // In case the old position is out of borders
     adjustForBorders(self);
     // Current position and surroundings
@@ -354,13 +515,17 @@ void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
     float new_x = self.pos_x;
     float new_y = self.pos_y;
 
-    if(isGasOrNone(grid, srd.below)){
+    // Always try to move down first
+    if(isGasOrNone(grid, srd.below) 
+                || moreDense(self, srd.below, grid)){
         possibleMoves.emplace_back(0);
     }
-    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_bl)){
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_bl) 
+                || moreDense(self, srd.diag_bl, grid)){
         possibleMoves.emplace_back(1);
     }
-    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_br)){
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_br)
+                || moreDense(self, srd.diag_br, grid)){
         possibleMoves.emplace_back(2);
     }
     if(!possibleMoves.empty()){
@@ -368,7 +533,9 @@ void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
         new_y++;
         if(possibleMoves[r] == 1) new_x--;
         if(possibleMoves[r] == 2) new_x++;
-        if(getGridIndex(new_x, new_y) != -1){
+        if(getGridIndex(new_x, new_y) != -1 || 
+                 moreDense(self, getGridIndex(new_x, new_y), grid)){
+            self.cooldown = waterCoolDown;
             swapper(self.pos_x, self.pos_y, new_x, new_y, grid);
             return;
         }
@@ -377,26 +544,118 @@ void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
     // if down is impossible, move left or right
     int r = getClosestMove(srd, self, grid, i, self.state);
     if(r == 1){
-        if(getGridIndex(self.pos_x - 1, self.pos_y) != -1 
-        && grid[getGridIndex(self.pos_x - 1, self.pos_y)].state == ParticleState::None){
+        if(isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid)){
+            self.cooldown = waterCoolDown * 2;
             swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
             return;
         }
     }
     if(r == 2) {
-        if(getGridIndex(self.pos_x + 1, self.pos_y) != -1 
-        && grid[getGridIndex(self.pos_x + 1, self.pos_y)].state == ParticleState::None){
+        if(isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid)){
+            self.cooldown = waterCoolDown * 2;
             swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
             return;
         }
     }
     if(getGridIndex(self.pos_x - 1, self.pos_y) == -1 
-        && grid[getGridIndex(self.pos_x + 1, self.pos_y)].state == ParticleState::None){
+        && (isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid))){
+            self.cooldown = waterCoolDown * 2;
             swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
             return;
         }
     if(getGridIndex(self.pos_x + 1, self.pos_y) == -1 
-        && grid[getGridIndex(self.pos_x +-1, self.pos_y)].state == ParticleState::None){
+        && (isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid))){
+            self.cooldown = waterCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
+            return;
+        }
+    if(isSolidOrFluid(grid, srd.above) && isSameState(grid, i, srd.above)) grid[srd.above].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.below) && isSameState(grid, i, srd.below)) grid[srd.below].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.left ) && isSameState(grid, i, srd.left )) grid[srd.left ].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.right) && isSameState(grid, i, srd.right)) grid[srd.right].pressure = self.pressure;
+
+
+    self.cooldown = 1;
+    
+}
+
+void Update::update_OIL(Particle &self, std::vector<Particle> &grid, int i){
+    self.cooldown -= 1;
+    if(self.cooldown > 0) 
+        return;
+    // In case the old position is out of borders
+    adjustForBorders(self);
+    // Current position and surroundings
+    int old_pos = getGridIndex(self.pos_x, self.pos_y);
+    // Coordinates of surrounding tiles
+    Surroundings srd (std::floor(self.pos_x),std::floor(self.pos_y));
+
+    getPressure(srd, self, grid, i);
+
+    std::vector<int> possibleMoves;
+    possibleMoves.reserve(10);
+
+    float new_x = self.pos_x;
+    float new_y = self.pos_y;
+
+    if(isGasOrNone(grid, srd.below) 
+                || moreDense(self, srd.below, grid)){
+        possibleMoves.emplace_back(0);
+    }
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_bl) 
+                || moreDense(self, srd.diag_bl, grid)){
+        possibleMoves.emplace_back(1);
+    }
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_br)
+                || moreDense(self, srd.diag_br, grid)){
+        possibleMoves.emplace_back(2);
+    }
+    if(!possibleMoves.empty()){
+        int r = rand()%possibleMoves.size();
+        new_y++;
+        if(possibleMoves[r] == 1) new_x--;
+        if(possibleMoves[r] == 2) new_x++;
+        if(getGridIndex(new_x, new_y) != -1 || 
+                 moreDense(self, getGridIndex(new_x, new_y), grid)){
+            self.cooldown = oilCoolDown;
+            swapper(self.pos_x, self.pos_y, new_x, new_y, grid);
+            return;
+        }
+    }
+
+    // if down is impossible, move left or right
+    int r = getClosestMove(srd, self, grid, i, self.state);
+    if(r == 1){
+        if(isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid)){
+            self.cooldown = oilCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
+            return;
+        }
+    }
+    if(r == 2) {
+        if(isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid)){
+            self.cooldown = oilCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
+            return;
+        }
+    }
+    if(getGridIndex(self.pos_x - 1, self.pos_y) == -1 
+        && (isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid))){
+            self.cooldown = oilCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
+            return;
+        }
+    if(getGridIndex(self.pos_x + 1, self.pos_y) == -1 
+        && (isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid))){
+            self.cooldown = oilCoolDown * 2;
             swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
             return;
         }
@@ -404,22 +663,28 @@ void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
     if(isSolidOrFluid(grid, srd.left )) grid[srd.left ].pressure = self.pressure;
     if(isSolidOrFluid(grid, srd.right)) grid[srd.right].pressure = self.pressure;
     if(isSolidOrFluid(grid, srd.below)) grid[srd.below].pressure = self.pressure;
+
+    self.cooldown = 1;
     
 }
-//*/
+
 /*
     FORCE CHECKERS
 */
 
+bool Update::moreDense(Particle& self, int other, std::vector<Particle>& grid){
+    if(other < 0) return false;
+    Particle tmp = grid[other];
+    return self.density > tmp.density;
+}
 //
 //@brief Get the pressure of particles above
-void Update::getPressure(Surroundings& sr,Particle&self, 
-                            std::vector<Particle> &grid, int i) {
-    if(self.state != ParticleState::None && self.state != ParticleState::Gas){
+void Update::getPressure(Surroundings& sr, Particle&self, std::vector<Particle> &grid, int i) {
+    if(!isGasOrNone(grid, i)){
         if(sr.above > -1 && grid[sr.above].state != ParticleState::None 
                          && grid[sr.above].state != ParticleState::Gas
-                         && grid[sr.above].type != ParticleType::Stone) 
-            self.pressure += grid[sr.above].pressure;
+                         && grid[sr.above].type  != ParticleType::Stone) 
+            self.pressure += grid[sr.above].pressure + 1;
         else self.pressure = 1;
     }
 }
@@ -535,51 +800,6 @@ int Update::getClosestMove(Surroundings &srd, Particle &self, std::vector<Partic
     return -1;
 }
 
-void Update::transferEnergy(Surroundings &sr, Particle &self, std::vector<Particle> &grid, int i)
-{  
-    if(sr.above > -1   && grid[sr.above].type == self.type) grid[sr.above].energy += self.energy*0.7f;
-    if(sr.below > -1   && grid[sr.below].type == self.type) grid[sr.below].energy += self.energy*0.7f;
-    if(sr.left  > -1   && grid[sr.left ].type == self.type) grid[sr.left ].energy += self.energy*0.7f;
-    if(sr.right > -1   && grid[sr.right].type == self.type) grid[sr.right].energy += self.energy*0.7f;
-}
-
-void Update::transmitEnergy (Surroundings& srd, Particle& self, std::vector<Particle>& grid, int i){
-    if(self.energy <= 0.01f) return; // no point in calculating, no energy received :(
-/*
-    1) on movement: kin E+++
-    2) on impact:   kin E => pot E
-    3) pot E => speed for further movement => E = 0
-
-Nothing is done on the first step when motion is present
-    
-*/
-
-    if(self.inertia_x > 0.05f || self.inertia_y > 0.05f){ 
-     //   self.vel_x = 0;
-     //   self.vel_y = 0;
-        return;
-    }
-    
-    // 2nd and 3rd steps (after impact)
-    self.inertia_x  = 0;
-    self.inertia_y  = 0;
-    self.energy *= 0.7f;
-
-    // nowhere to move => just transfer it all
-
-    if (srd.to_move == 0) {
-        transferEnergy(srd, self, grid, i);
-        self.energy = 0;
-        return;
-    }
-    if(self.vel_y > 0) self.vel_y +=  sqrt(self.energy/4), self.energy /= 4;
-    if(self.vel_y < 0) self.vel_y += -sqrt(self.energy/4), self.energy /= 4;
-
-    if(self.vel_x > 0) self.vel_x +=  sqrt(self.energy/4);
-    if(self.vel_x < 0) self.vel_x += -sqrt(self.energy/4);
-    // if velocity is present => the direction should be predetermined 
-}
-
 // @brief Swap particles [pos_x, pos_y] and [new_x, new_y]
 void Update::swapper(float pos_x, float pos_y, float new_x, float new_y, std::vector<Particle>& grid){
     int old_pos = getGridIndex(pos_x, pos_y);
@@ -587,6 +807,13 @@ void Update::swapper(float pos_x, float pos_y, float new_x, float new_y, std::ve
     grid[new_pos].setCoord(pos_x, pos_y);
     grid[old_pos].setCoord(new_x, new_y);
     std::swap(grid[old_pos], grid[new_pos]);
+}
+
+bool Update::isSameType(std::vector<Particle>&  grid, int i, int t){
+    return i > -1 && t > -1 && (grid[i].type == grid[t].type);
+}
+bool Update::isSameState(std::vector<Particle>&  grid, int i, int t){
+    return i > -1 && t > -1 && (grid[i].state == grid[t].state);
 }
 
 int Update::getGridIndex(float x, float y) {

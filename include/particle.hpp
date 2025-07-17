@@ -8,7 +8,7 @@
 #include <string>
 #include <random>
 
-enum class ParticleType {Smoke, Sand, Water, Stone, None};
+enum class ParticleType {Smoke, Sand, Water, Oil, Stone, None, WetSand};
 enum class ParticleState {Solid, Fluid, Gas, None};
 
 extern int GRID_WIDTH;
@@ -17,6 +17,9 @@ extern int GRID_HEIGHT;
 class Particle{
     public:
         int id;
+
+        int cooldown;
+        int density; 
 
         float pos_x;
         float pos_y;
@@ -61,15 +64,19 @@ class Particle{
         static const std::vector<std::vector<std::string>>  type_list;
         static const std::vector<std::string>               states_list;
         static const std::vector<std::vector<short>> colorSand;
+        static const std::vector<std::vector<short>> colorWetSand;
         static const std::vector<std::vector<short>> colorWater;
         static const std::vector<std::vector<short>> colorStone;
         static const std::vector<std::vector<short>> colorSmoke;
+        static const std::vector<std::vector<short>> colorOil;
 
         static ParticleState      getStateByType(ParticleType type);
         static std::vector<short> getColorByType(ParticleType type);
         static float              getPressureByType (ParticleType type);
+        static int                getDensityByType (ParticleType type);
         static std::string        getTypeAsString(ParticleType type);
 
+        static bool               moreDense(Particle& self, int other, std::vector<Particle>& grid);
         static bool isTypeAndState(ParticleType type, ParticleState state);
 };
 
