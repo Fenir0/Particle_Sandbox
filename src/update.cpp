@@ -55,6 +55,7 @@ float simulationSpeed = 0.5f;
 
 int waterCoolDown = 2;
 int oilCoolDown   = 3;
+int LavaCoolDown  = 6;
 int sandCoolDown  = 1;
 //
 // @brief Clamp to 1 tile per 1 frame
@@ -91,6 +92,9 @@ Movement getMovement(int new_pos, Surroundings& srd){
 
 void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){ 
     // In case the old position is out of borders
+    self.cooldown--;
+    if(self.cooldown > 0) return;
+    self.cooldown = std::max(2, self.cooldown); 
     adjustForBorders(self);
 
     // Current position and surroundings
@@ -117,13 +121,7 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
     // Get the direction (stable if not moved/not possible to move)
     Movement mv = getMovement(new_pos, srd);
     
-    if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Water ||
-       isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Water ||
-       isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Water ||
-       isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Water 
-    ){
-        self.setArgs(ParticleType::WetSand, self.state, Particle::getColorByType(ParticleType::WetSand), self.vel_x, self.vel_y, self.pressure, 0);
-    }
+    updateOnSurroundings(srd, self, grid, i);
 
     // velocity not enough to change position (yet)
     if(new_pos > -1 && mv == Movement::STABLE){ 
@@ -143,6 +141,8 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
                 if(r%2){
                     if(grid[srd.diag_bl].state != ParticleState::Solid && 
                                     grid[srd.left].state != ParticleState::Solid){
+                        if(grid[getGridIndex(self.pos_x-1, self.pos_y+1)].type 
+                                == ParticleType::Oil) self.cooldown = 10;
                         swapper(self.pos_x, self.pos_y, 
                                 self.pos_x-1, self.pos_y+1, grid);
                         return;
@@ -151,6 +151,8 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
                 else{
                     if(grid[srd.diag_br].state != ParticleState::Solid && 
                                     grid[srd.right].state != ParticleState::Solid){
+                        if(grid[getGridIndex(self.pos_x+1, self.pos_y+1)].type 
+                                == ParticleType::Oil) self.cooldown = 10;
                         swapper(self.pos_x, self.pos_y, 
                                 self.pos_x+1, self.pos_y+1, grid);
                         return;
@@ -181,6 +183,7 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
             self.vel_y = 0;
             self.inertia_y *= 0.7f;
             self.inertia_x *= 0.7f;
+            if(grid[new_pos].type == ParticleType::Oil) self.cooldown = 10;
             swapper(self.pos_x, self.pos_y, 
                          new_x,      new_y,    grid);
             return;
@@ -275,6 +278,7 @@ void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){
     self.inertia_x += self.vel_x;
     self.inertia_y += self.vel_y; 
 
+    updateOnSurroundings(srd, self, grid, i);
 
     // next position                                             // some noice for less idealistic moves
     float new_x = self.pos_x + inertia_to_movement(self.inertia_x, self.type) + self.vel_x*(rand()%3)/5.f;
@@ -291,8 +295,6 @@ void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){
         self.vel_y = 0;
         self.pos_x += inertia_to_movement(self.inertia_x, self.type);
         self.pos_y += inertia_to_movement(self.inertia_y, self.type);
-        
-        
         return;
     }
     if (new_pos < 0) {
@@ -392,11 +394,103 @@ void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){
         return;
 }
 
+void Update::update_LAVA(Particle &self, std::vector<Particle> &grid, int i){
+    self.cooldown -= 1;
+    if(self.cooldown > 0) 
+        return;
+    self.cooldown = std::max(self.cooldown, 3);
+    // In case the old position is out of borders
+    adjustForBorders(self);
+    // Current position and surroundings
+    int old_pos = getGridIndex(self.pos_x, self.pos_y);
+    // Coordinates of surrounding tiles
+    Surroundings srd (std::floor(self.pos_x),std::floor(self.pos_y));
+
+    getPressure(srd, self, grid, i);
+
+    std::vector<int> possibleMoves;
+    possibleMoves.reserve(10);
+
+    float new_x = self.pos_x;
+    float new_y = self.pos_y;
+
+   if(self.temperature <= 0) self.setArgs(ParticleType::Smoke, ParticleState::Gas, 
+                     Particle::getColorByType(ParticleType::Smoke), self.vel_x, self.vel_y, 0, 0, 0);
+
+    // Always try to move down first
+    if(isGasOrNone(grid, srd.below) 
+                || moreDense(self, srd.below, grid)){
+        possibleMoves.emplace_back(0);
+    }
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_bl) 
+                || moreDense(self, srd.diag_bl, grid)){
+        possibleMoves.emplace_back(1);
+    }
+    if(isGasOrNone(grid, srd.below) && isGasOrNone(grid, srd.diag_br)
+                || moreDense(self, srd.diag_br, grid)){
+        possibleMoves.emplace_back(2);
+    }
+    if(!possibleMoves.empty()){
+        int r = rand()%possibleMoves.size();
+        new_y++;
+        if(possibleMoves[r] == 1) new_x--;
+        if(possibleMoves[r] == 2) new_x++;
+        if(getGridIndex(new_x, new_y) != -1 || 
+                 moreDense(self, getGridIndex(new_x, new_y), grid)){
+            self.cooldown = LavaCoolDown;
+            swapper(self.pos_x, self.pos_y, new_x, new_y, grid);
+            return;
+        }
+    }
+
+    // if down is impossible, move left or right
+    int r = getClosestMove(srd, self, grid, i, self.state);
+    if(r == 1){
+        if(isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid)){
+            self.cooldown = LavaCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
+            return;
+        }
+    }
+    if(r == 2) {
+        if(isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid)){
+            self.cooldown = LavaCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
+            return;
+        }
+    }
+    if(getGridIndex(self.pos_x - 1, self.pos_y) == -1 
+        && (isGasOrNone(grid, getGridIndex(self.pos_x + 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid))){
+            self.cooldown = LavaCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
+            return;
+        }
+    if(getGridIndex(self.pos_x + 1, self.pos_y) == -1 
+        && (isGasOrNone(grid, getGridIndex(self.pos_x - 1, self.pos_y))
+            || moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid))){
+            self.cooldown = LavaCoolDown * 2;
+            swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
+            return;
+        }
+    if(isSolidOrFluid(grid, srd.above) && isSameState(grid, i, srd.above)) grid[srd.above].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.below) && isSameState(grid, i, srd.below)) grid[srd.below].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.left ) && isSameState(grid, i, srd.left )) grid[srd.left ].pressure = self.pressure;
+    if(isSolidOrFluid(grid, srd.right) && isSameState(grid, i, srd.right)) grid[srd.right].pressure = self.pressure;
+
+
+    self.cooldown = 1;
+    
+}
+
 
 void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){ 
     // In case the old position is out of borders
-    self.cooldown+=1;
-    self.cooldown*=7;
+    self.cooldown--;
+    if(self.cooldown > 0) return;
+    self.cooldown = std::max(self.cooldown, 3);
     adjustForBorders(self);
 
     // Current position and surroundings
@@ -415,15 +509,21 @@ void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){
 
     // Gas always moves up if possible (be it up, up-left, up-right)
     //                      looks awful, yeah           but works
-    if(srd.above > -1 && grid[srd.above].state == ParticleState::None){
+    if(srd.above > -1 && grid[srd.above].state == ParticleState::None 
+                        && moreDense(self, srd.above, grid)
+    ){
         possibleMoves.emplace_back(0);
     }
     if(srd.diag_al > -1 && grid[srd.diag_al].state == ParticleState::None 
-                        && grid[srd.left].state == ParticleState::None){
+                        && grid[srd.left].state == ParticleState::None
+                        && moreDense(self, srd.left, grid)
+                        && moreDense(self, srd.diag_al, grid)){
         possibleMoves.emplace_back(1);
     }
     if(srd.diag_ar > -1 && grid[srd.diag_ar].state == ParticleState::None 
-                        && grid[srd.right].state == ParticleState::None){
+                        && grid[srd.right].state == ParticleState::None
+                        && moreDense(self, srd.right, grid)
+                        && moreDense(self, srd.diag_ar, grid)){
         possibleMoves.emplace_back(2);
     }
     if(!possibleMoves.empty()){
@@ -441,16 +541,19 @@ void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){
     // if up is impossible, move left or right
     possibleMoves.clear();
     int r = getClosestMove(srd, self, grid, i, self.state);
+    if(r == -1 && srd.above == -1) r = rand()%2+1;
     if(r == 1){
         if(getGridIndex(self.pos_x - 1, self.pos_y) != -1
-        && grid[getGridIndex(self.pos_x - 1, self.pos_y)].state == ParticleState::None){
+        && grid[getGridIndex(self.pos_x - 1, self.pos_y)].state == ParticleState::None
+        && moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid)){
             swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
             return;
         }
     }
     if(r == 2) {
         if(getGridIndex(self.pos_x + 1, self.pos_y) != -1 
-        && grid[getGridIndex(self.pos_x + 1, self.pos_y)].state == ParticleState::None){
+        && grid[getGridIndex(self.pos_x + 1, self.pos_y)].state == ParticleState::None
+        && moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid)){
             swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
             return;
         }
@@ -471,8 +574,8 @@ void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){
     if(isGasOrNone(grid, srd.below)){
         possibleMoves.emplace_back(3);
     }
-    if(possibleMoves.size() > 3 && self.cooldown%3==2){
-        int r = rand()%possibleMoves.size();
+    if(possibleMoves.size() > 3){
+        int r = rand()%(possibleMoves.size()+60);
         switch (r)
         {
         case 0: new_y--; break;
@@ -491,6 +594,112 @@ void Update::update_SMOKE(Particle &self, std::vector<Particle> &grid, int i){
 
     }
 }
+
+void Update::update_STEAM(Particle &self, std::vector<Particle> &grid, int i){ 
+    // In case the old position is out of borders
+    self.cooldown--;
+    if(self.cooldown > 0) return;
+    self.cooldown = std::max(self.cooldown, 3);
+    adjustForBorders(self);
+
+    // Current position and surroundings
+    int old_pos = getGridIndex(self.pos_x, self.pos_y);
+    // Coordinates of surrounding tiles
+    Surroundings srd (std::floor(self.pos_x),std::floor(self.pos_y));
+    std::vector<int> possibleMoves;
+    possibleMoves.reserve(10);
+
+    float new_x = self.pos_x;
+    float new_y = self.pos_y;
+
+    // Gas always moves up if possible (be it up, up-left, up-right)
+    //                      looks awful, yeah           but works
+    if(srd.above > -1 && grid[srd.above].state == ParticleState::None 
+                        && moreDense(self, srd.above, grid)
+    ){
+        possibleMoves.emplace_back(0);
+    }
+    if(srd.diag_al > -1 && grid[srd.diag_al].state == ParticleState::None 
+                        && grid[srd.left].state == ParticleState::None
+                        && moreDense(self, srd.left, grid)
+                        && moreDense(self, srd.diag_al, grid)){
+        possibleMoves.emplace_back(1);
+    }
+    if(srd.diag_ar > -1 && grid[srd.diag_ar].state == ParticleState::None 
+                        && grid[srd.right].state == ParticleState::None
+                        && moreDense(self, srd.right, grid)
+                        && moreDense(self, srd.diag_ar, grid)){
+        possibleMoves.emplace_back(2);
+    }
+    if(!possibleMoves.empty()){
+        int r = rand()%possibleMoves.size();
+        new_y--;
+        if(possibleMoves[r] == 1) new_x--;
+        if(possibleMoves[r] == 2) new_x++;
+        if(getGridIndex(new_x, new_y) != -1){
+            swapper(self.pos_x, self.pos_y, new_x, new_y, grid);
+            return;
+        }
+    }
+    new_x = self.pos_x;
+    new_y = self.pos_y;
+    // if up is impossible, move left or right
+    possibleMoves.clear();
+    int r = getClosestMove(srd, self, grid, i, self.state);
+    if(r == -1 && srd.above == -1) r = rand()%2+1;
+    if(r == 1){
+        if(getGridIndex(self.pos_x - 1, self.pos_y) != -1
+        && grid[getGridIndex(self.pos_x - 1, self.pos_y)].state == ParticleState::None
+        && moreDense(self, getGridIndex(self.pos_x - 1, self.pos_y), grid)){
+            swapper(self.pos_x, self.pos_y, self.pos_x - 1, self.pos_y, grid);
+            return;
+        }
+    }
+    if(r == 2) {
+        if(getGridIndex(self.pos_x + 1, self.pos_y) != -1 
+        && grid[getGridIndex(self.pos_x + 1, self.pos_y)].state == ParticleState::None
+        && moreDense(self, getGridIndex(self.pos_x + 1, self.pos_y), grid)){
+            swapper(self.pos_x, self.pos_y, self.pos_x + 1, self.pos_y, grid);
+            return;
+        }
+    }
+    possibleMoves.clear();
+    //return;
+    // if not moved, just swap with same particles to simulate chaos
+    try{
+    if(srd.above > -1 && grid[srd.above].state == self.state){
+        possibleMoves.emplace_back(0);
+    }
+    if(isGasOrNone(grid, srd.left)){
+        possibleMoves.emplace_back(1);
+    }
+    if(isGasOrNone(grid, srd.right)){
+        possibleMoves.emplace_back(2);
+    }
+    if(isGasOrNone(grid, srd.below)){
+        possibleMoves.emplace_back(3);
+    }
+    if(possibleMoves.size() > 3){
+        int r = rand()%(possibleMoves.size()+60);
+        switch (r)
+        {
+        case 0: new_y--; break;
+        case 1: new_x--; break;
+        case 2: new_x++; break;
+        case 3: new_y++; break;      
+        default:
+            break;
+        }
+        swapper(self.pos_x, self.pos_y, new_x, new_y, grid);
+        return;
+    }
+    }
+    catch(std::exception err){
+        int r;
+
+    }
+}
+
 
 void Update::update_STONE(Particle &self, std::vector<Particle> &grid, int i){
     return;
@@ -514,6 +723,8 @@ void Update::update_WATER(Particle &self, std::vector<Particle> &grid, int i){
 
     float new_x = self.pos_x;
     float new_y = self.pos_y;
+
+    updateOnSurroundings(srd, self, grid, i);
 
     // Always try to move down first
     if(isGasOrNone(grid, srd.below) 
@@ -602,6 +813,8 @@ void Update::update_OIL(Particle &self, std::vector<Particle> &grid, int i){
     float new_x = self.pos_x;
     float new_y = self.pos_y;
 
+    updateOnSurroundings(srd, self, grid, i);
+
     if(isGasOrNone(grid, srd.below) 
                 || moreDense(self, srd.below, grid)){
         possibleMoves.emplace_back(0);
@@ -667,6 +880,79 @@ void Update::update_OIL(Particle &self, std::vector<Particle> &grid, int i){
     self.cooldown = 1;
     
 }
+
+void Update::updateOnSurroundings(Surroundings& srd, Particle& self, std::vector<Particle> &grid, int i){
+    if(self.type == ParticleType::Water){
+        if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Lava ){
+                self.setArgs(ParticleType::Steam, ParticleState::Gas, 
+                     Particle::getColorByType(ParticleType::Steam), self.vel_x, self.vel_y, 0, 0, 100);
+                if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Lava) 
+                            grid[srd.above].temperature--;
+                if(isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Lava) 
+                            grid[srd.below].temperature--;
+                if(isSolidOrFluid(grid, srd.left) && grid[srd.left].type == ParticleType::Lava) 
+                            grid[srd.left].temperature--;
+
+                if(isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Lava) 
+                            grid[srd.right].temperature--;
+        }
+    }
+    if(self.type == ParticleType::Oil){
+        if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Lava ||
+            isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Lava ){
+                self.temperature+=100;
+                if(self.temperature > 10'000){
+                        self.setArgs(ParticleType::Smoke, ParticleState::Gas, 
+                        Particle::getColorByType(ParticleType::Smoke), self.vel_x, self.vel_y, 0, 0, 0);
+                    }
+                }
+                if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Lava) 
+                            grid[srd.above].temperature--;
+                if(isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Lava) 
+                            grid[srd.below].temperature--;
+                if(isSolidOrFluid(grid, srd.left) && grid[srd.left].type == ParticleType::Lava) 
+                            grid[srd.left].temperature--;
+
+                if(isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Lava) 
+                            grid[srd.right].temperature--;
+    }
+    if(self.type == ParticleType::Sand){
+        // change to wet if water around
+        if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Water ||
+            isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Water ||
+            isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Water ||
+            isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Water ){
+                self.wetness = 200;
+                self.setArgs(ParticleType::WetSand, self.state, Particle::getColorByType(ParticleType::WetSand),
+                        self.vel_x, self.vel_y, self.pressure, 0, 0);
+        }
+        else if(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Oil ||
+            isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Oil ||
+            isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Oil ||
+            isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Oil){
+                self.wetness = 100;
+                self.setArgs(ParticleType::WetSand, self.state, Particle::getColorByType(ParticleType::WetSand),
+                        self.vel_x, self.vel_y, self.pressure, 0, 0);
+        }
+    }
+    if(self.type == ParticleType::WetSand){
+            if(!(isSolidOrFluid(grid, srd.above) && grid[srd.above].type == ParticleType::Water ||
+                isSolidOrFluid(grid, srd.below) && grid[srd.below].type == ParticleType::Water ||
+                isSolidOrFluid(grid, srd.left ) && grid[srd.left ].type == ParticleType::Water ||
+                isSolidOrFluid(grid, srd.right) && grid[srd.right].type == ParticleType::Water) ){
+                    self.wetness--;
+                    if(self.wetness == 0)
+                        self.setArgs(ParticleType::Sand, self.state, Particle::getColorByType(ParticleType::Sand), 
+                                self.vel_x, self.vel_y, self.pressure, 0, 0);
+            }
+    }
+}
+
 
 /*
     FORCE CHECKERS

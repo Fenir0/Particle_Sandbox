@@ -4,7 +4,7 @@
     DRAWING
     UPDATE&RENDER
 */
-int FPS = 30;
+int FPS = 60;
 
       int PIXEL_SIZE     = 12;
 const int PIXEL_SIZE_MIN =  2;
@@ -32,6 +32,8 @@ bool GasSelect   = false;
 bool SolidHoverSelect = false;
 bool FluidHoverSelect = false;
 bool GasHoverSelect   = false;
+
+bool suppressClick = false;
 
 void Game::calculateWindowSize(){
     updateUIScaling();
@@ -69,15 +71,19 @@ void Game::initWin(){
 }
 
 void Game::initVar(){
+    // Defaults
     GRID_HEIGHT = 64;
     GRID_WIDTH  = 64;
-    grid.resize(GRID_HEIGHT*GRID_WIDTH);
-    particles.setPrimitiveType(sf::Quads);
+
     brushSize = 2;
-    selectedType = ParticleType::Sand;
-    font.loadFromFile("../assets/arial.ttf");
     particleCount = 0;
     Update::freezeSelect = false;
+    selectedType = ParticleType::Sand;
+
+    // Resize and load
+    grid.resize(GRID_HEIGHT*GRID_WIDTH);
+    particles.setPrimitiveType(sf::Quads);
+    font.loadFromFile("../assets/arial.ttf");
 }
 
 bool Game::isRunning() const{
@@ -89,6 +95,7 @@ bool Game::isRunning() const{
 */
 
 void Game::mouseInput(){
+    // Left click - place
     if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
         sf::Vector2i currPos = sf::Mouse::getPosition(*window);
         sf::Vector2f overPos = window->mapPixelToCoords(currPos); 
@@ -97,6 +104,7 @@ void Game::mouseInput(){
         if(my > 0 && mx > 0 && my < GRID_HEIGHT - 1 && mx < GRID_WIDTH - 1)
             placeParticleOnScene(mx, my, selectedType);
     }
+    // Right click - erase
     else if(sf::Mouse::isButtonPressed(sf::Mouse::Right)){
         sf::Vector2i mouse = sf::Mouse::getPosition(*window);
         int mx = mouse.x / PIXEL_SIZE;
@@ -126,7 +134,7 @@ void Game::placeParticleOnScene(int mx, int my, ParticleType type) {
                         Particle prt;
                         prt.setArgs(type, Particle::getStateByType(type), 
                                           Particle::getColorByType(type), 
-                                                         0, 0, 0, 0);
+                                                         0, 0, 0, 0, Particle::getTempByType(selectedType));
                         prt.setCoord(x, y);
                         grid[index] = prt;
                     }
@@ -166,8 +174,12 @@ void Game::update(){
                 }
 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window->close();
-                        break;
-                        
+
+                break;
+            case sf::Event::Closed:
+                window->close();
+                break;
+            
             case sf::Event::MouseButtonPressed:{
                 int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
                 int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
@@ -188,6 +200,7 @@ void Game::update(){
                                     if(i1 == 0) SolidSelect = true;
                                     if(i1 == 1) FluidSelect = true;
                                     if(i1 == 2) GasSelect   = true;
+                                    suppressClick = true;
                                 } else{
                                     hoverDisable();
                                 }
@@ -198,7 +211,8 @@ void Game::update(){
                                 my >= ys && my <= ys + buttonHeight/PIXEL_SIZE){
                             hoverDisable();
                             stateDisable();
-                            selectHover(i1);
+                            selectHover (i1);
+                            suppressClick = true;
                         }
                     }
                 }
@@ -222,9 +236,13 @@ void Game::update(){
                 }
                 break;
             }
+            case sf::Event::MouseButtonReleased:
+                suppressClick = false;
         }
     }
-    mouseInput();
+    if(!suppressClick)
+        mouseInput();
+
     if(!Update::freezeSelect) {
         for(int i = 0; i < grid.size(); i++) {
             grid[i].Update(grid, i);

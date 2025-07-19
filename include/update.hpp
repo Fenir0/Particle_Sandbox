@@ -12,8 +12,12 @@ class Update{
         static void update_SAND (Particle& self, std::vector<Particle> &grid, int i);
         static void update_WATER(Particle& self, std::vector<Particle> &grid, int i);
         static void update_OIL  (Particle& self, std::vector<Particle> &grid, int i);
+        static void update_LAVA (Particle& self, std::vector<Particle> &grid, int i);
         static void update_STONE(Particle& self, std::vector<Particle> &grid, int i);
         static void update_SMOKE(Particle& self, std::vector<Particle> &grid, int i);
+        static void update_STEAM(Particle& self, std::vector<Particle> &grid, int i);
+
+        static void updateOnSurroundings(Surroundings& srd, Particle& self, std::vector<Particle> &grid, int i);
 
         // Checkers
         static void getGravity (Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);
@@ -27,13 +31,10 @@ class Update{
         static bool isSameType (std::vector<Particle>& grid, int i, int t);
         static bool isSameState(std::vector<Particle>& grid, int i, int t);
 
-
-        static void clamp(Particle& self);
-
         static void swapper(float pos_x, float pos_y, 
                             float new_x, float new_y, 
                             std::vector<Particle>& grid);
-        static bool isValid(int x, int y);
+
         static int getGridIndex(float x, float y);
 };
 

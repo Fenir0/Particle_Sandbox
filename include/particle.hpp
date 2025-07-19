@@ -8,7 +8,7 @@
 #include <string>
 #include <random>
 
-enum class ParticleType {Smoke, Sand, Water, Oil, Stone, None, WetSand};
+enum class ParticleType {Smoke, Sand, Water, Oil, Lava, Stone, Obsidian, None, WetSand, Steam};
 enum class ParticleState {Solid, Fluid, Gas, None};
 
 extern int GRID_WIDTH;
@@ -20,6 +20,8 @@ class Particle{
 
         int cooldown;
         int density; 
+        int wetness;
+        int temperature;
 
         float pos_x;
         float pos_y;
@@ -53,7 +55,7 @@ class Particle{
         void setArgs(ParticleType type, ParticleState state, 
                         std::vector<short> color, 
                         float vel_x, float vel_y, 
-                        float pressure, float inertia);
+                        float pressure, float inertia, int temperature);
 
         ParticleType        getType();
         ParticleState       getState();
@@ -69,12 +71,16 @@ class Particle{
         static const std::vector<std::vector<short>> colorStone;
         static const std::vector<std::vector<short>> colorSmoke;
         static const std::vector<std::vector<short>> colorOil;
+        static const std::vector<std::vector<short>> colorLava;
+        static const std::vector<std::vector<short>> colorObsidian;
+        static const std::vector<std::vector<short>> colorSteam;
 
-        static ParticleState      getStateByType(ParticleType type);
-        static std::vector<short> getColorByType(ParticleType type);
-        static float              getPressureByType (ParticleType type);
+        static ParticleState      getStateByType   (ParticleType type);
+        static std::vector<short> getColorByType   (ParticleType type);
+        static float              getPressureByType(ParticleType type);
         static int                getDensityByType (ParticleType type);
-        static std::string        getTypeAsString(ParticleType type);
+        static int                getTempByType    (ParticleType type);
+        static std::string        getTypeAsString  (ParticleType type);
 
         static bool               moreDense(Particle& self, int other, std::vector<Particle>& grid);
         static bool isTypeAndState(ParticleType type, ParticleState state);
