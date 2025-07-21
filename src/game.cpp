@@ -22,6 +22,8 @@ float padding      = PIXEL_SIZE;
 float buttonWidth  = PIXEL_SIZE * 5;
 float buttonHeight = PIXEL_SIZE * 3;
 
+float bottomY;
+
 unsigned int defaultCharSize = 14;
 
 bool clearSelect = false;
@@ -45,6 +47,7 @@ void Game::calculateWindowSize(){
     HEIGHT = WINDOW_HEIGHT_PXS;
     WIDTH  = WINDOW_WIDTH_PXS;
     pxs.resize(GRID_WIDTH * GRID_HEIGHT * 4);
+    bottomY = HEIGHT - PIXEL_SIZE - buttonHeight - padding;
 
 }
 
@@ -72,12 +75,12 @@ void Game::initWin(){
 
 void Game::initVar(){
     // Defaults
-    GRID_HEIGHT = 64;
+    GRID_HEIGHT = 64; // visible grid shorter by 2
     GRID_WIDTH  = 64;
 
     brushSize = 2;
     particleCount = 0;
-    Update::freezeSelect = false;
+    freezeSelect = false;
     selectedType = ParticleType::Sand;
 
     // Resize and load
@@ -122,19 +125,17 @@ void Game::placeParticleOnScene(int mx, int my, ParticleType type) {
                 int y = my + dy;
                 if(x > 0 && x < GRID_WIDTH - 1 && y > 0 && y < GRID_HEIGHT - 1){
                     int index = Update::getGridIndex(x, y);
-                    if(grid[index].type == ParticleType::None || 
+                    if(grid[index].getType() == ParticleType::None || 
                                    type == ParticleType::None){
                         if(type==ParticleType::None && 
-                            grid[index].type != ParticleType::None)
+                            grid[index].getType() != ParticleType::None)
                             particleCount--;
                         else if(type != ParticleType::None &&
-                            grid[index].type == ParticleType::None)
+                            grid[index].getType() == ParticleType::None)
                             particleCount++;
 
-                        Particle prt;
-                        prt.setArgs(type, Particle::getStateByType(type), 
-                                          Particle::getColorByType(type), 
-                                                         0, 0, 0, 0, Particle::getTempByType(selectedType));
+                        Particle prt (selectedType);
+                        prt.setArgs(type, 0, 0, 0, 0, Particle::getTempByType(selectedType));
                         prt.setCoord(x, y);
                         grid[index] = prt;
                     }
@@ -148,6 +149,7 @@ void Game::placeParticleOnScene(int mx, int my, ParticleType type) {
     Main event loop
 */
 void Game::update(){
+    //printf("%d\n", particleCount);
     clearSelect = false;
     window->setFramerateLimit(FPS);
     while(window->pollEvent(evt)){
@@ -156,8 +158,7 @@ void Game::update(){
             case sf::Event::KeyPressed:
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))    brushSize = std::min(10, brushSize+1);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))  brushSize = std::max(0 , brushSize-1);
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) Update::freezeSelect = !Update::freezeSelect;
-                
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) freezeSelect = !freezeSelect;
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)){
                     PIXEL_SIZE = std::min(PIXEL_SIZE_MAX, PIXEL_SIZE + 1);
                     defaultCharSize++;
@@ -172,34 +173,30 @@ void Game::update(){
                     window->setSize(sf::Vector2u(WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS));
                     window->setView(sf::View(sf::FloatRect(0, 0, WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS)));
                 }
-
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window->close();
-
                 break;
             case sf::Event::Closed:
                 window->close();
                 break;
-            
             case sf::Event::MouseButtonPressed:{
                 int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
                 int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
                 if(evt.mouseButton.button == sf::Mouse::Left){
                     for(int i1 = 0; i1 < Particle::states_list.size(); i1++){
                         float xs = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
-                        float ys = padding/PIXEL_SIZE;
+                        float ys =  padding                            /PIXEL_SIZE;
+
                         if(checkIfHoverSelect(i1)){
                             for(int i2 = 0; i2 < Particle::type_list[i1].size(); i2++){
                                 float x = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
-                                float y = (padding + i2*buttonHeight)/PIXEL_SIZE;
+                                float y = (padding + i2*buttonHeight         )/PIXEL_SIZE;
 
                                 if(mx >= x && mx <= x + buttonWidth /PIXEL_SIZE && 
-                                my >= y && my <= y + buttonHeight/PIXEL_SIZE){
+                                   my >= y && my <= y + buttonHeight/PIXEL_SIZE){
                                     selectedType = Particle::types[i1][i2];
-                                    stateDisable();
+
+                                    stateSelect(i1);
                                     hoverDisable();
-                                    if(i1 == 0) SolidSelect = true;
-                                    if(i1 == 1) FluidSelect = true;
-                                    if(i1 == 2) GasSelect   = true;
                                     suppressClick = true;
                                 } else{
                                     hoverDisable();
@@ -210,8 +207,7 @@ void Game::update(){
                         else if(mx >= xs && mx <= xs + buttonWidth /PIXEL_SIZE && 
                                 my >= ys && my <= ys + buttonHeight/PIXEL_SIZE){
                             hoverDisable();
-                            stateDisable();
-                            selectHover (i1);
+                            hoverSelect (i1);
                             suppressClick = true;
                         }
                     }
@@ -221,7 +217,7 @@ void Game::update(){
                 float x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*3)/PIXEL_SIZE;
                 float y = padding/PIXEL_SIZE;
                 if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
-                    my >= y && my < y + buttonHeight/PIXEL_SIZE){
+                   my >= y && my < y + buttonHeight    /PIXEL_SIZE){
                     grid.clear();
                     grid.resize(GRID_HEIGHT*GRID_WIDTH);
                     clearSelect = true;
@@ -231,32 +227,61 @@ void Game::update(){
                 x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5)/PIXEL_SIZE;
                 y = padding/PIXEL_SIZE;
                 if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
-                    my >= y && my < y + buttonHeight/PIXEL_SIZE){
-                    Update::freezeSelect = !Update::freezeSelect;
+                   my >= y && my < y + buttonHeight    /PIXEL_SIZE){
+                    freezeSelect = !freezeSelect;
                 }
+                
+                /*
+                Bottom buttons
+                */
+            
+                for(int i = 0; i < 3; i++){
+                    x = (padding + i*(buttonWidth+2*padding))/PIXEL_SIZE;
+                    y = bottomY/PIXEL_SIZE;
+                    if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
+                        my >= y && my < y + buttonHeight/PIXEL_SIZE){
+                            if(i == 0){
+                                saveCurrentState();
+                            }
+                            else if(i == 1){
+                                
+                            }
+                            else if(i == 2){
+                                
+                            }
+                    }
+                }
+
                 break;
             }
             case sf::Event::MouseButtonReleased:
+
                 suppressClick = false;
         }
     }
-    if(!suppressClick)
+    /* Ignore a click which closed the menu hovering over grid
+    */
+    if(!suppressClick) 
         mouseInput();
 
-    if(!Update::freezeSelect) {
+    /* Update current state
+    */
+    if(!freezeSelect) {
         for(int i = 0; i < grid.size(); i++) {
             grid[i].Update(grid, i);
         }   
     }
+    /* Draw current state
+    */
     particles.clear();
     for(int y = 0; y < GRID_HEIGHT; y++) {
         for(int x = 0; x < GRID_WIDTH; x++) {
             Particle& pt = grid[x + y * GRID_WIDTH];
 
-            ParticleType  type           = pt.type;
-            ParticleState state          = pt.state;
+            ParticleType  type           = pt.getType();
+            ParticleState state          = pt.getState();
             std::pair<float,float> pxy   = pt.getCoord();
-            std::vector<short>     color = pt.color;
+            std::vector<short>     color = pt.getColor();
             sf::Color  c(color[0], color[1], color[2]);
             float px =                 pxy.first  * PIXEL_SIZE;
             float py = UI_HEIGHT_PXS + pxy.second * PIXEL_SIZE;
@@ -287,36 +312,35 @@ bool Game::checkIfStateSelect(int i){
     return false;
 }
 
+void Game::hoverSelect(int i){
+    switch (i)
+    {
+    case 0:
+        SolidHoverSelect = true;
+        return;
+    
+    case 1:
+        FluidHoverSelect = true;
+        return;
+    
+    case 2:
+        GasHoverSelect = true;
+        return;
+    }
+}
 void Game::hoverDisable(){
     SolidHoverSelect = false;
     FluidHoverSelect = false;
     GasHoverSelect   = false;
 }
-void Game::stateDisable(){
+void Game::stateSelect(int i){
     SolidSelect = false;
     FluidSelect = false;
     GasSelect   = false;
+    if(i == 0) SolidSelect = true;
+    if(i == 1) FluidSelect = true;
+    if(i == 2) GasSelect   = true;
 }
-void Game::selectHover(int i){
-    switch (i)
-    {
-    case 0:
-        SolidHoverSelect = true;
-        SolidSelect      = true;
-        return;
-    
-    case 1:
-        FluidHoverSelect = true;
-        FluidSelect      = true;
-        return;
-    
-    case 2:
-        GasHoverSelect = true;
-        GasSelect      = true;
-        return;
-    }
-}
-
 /*
     Draw
 */
@@ -454,8 +478,10 @@ void Game::drawButton(){
     {
     sf::RectangleShape buttonFreezeAll(sf::Vector2f(buttonWidth*1.6, buttonHeight));
     buttonFreezeAll.setPosition(WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5, padding);
-    if(Update::freezeSelect) buttonFreezeAll.setFillColor(sf::Color(200, 200, 100));
+
+    if(freezeSelect) buttonFreezeAll.setFillColor(sf::Color(200, 200, 100));
     else buttonFreezeAll.setFillColor(sf::Color(150, 150, 150));
+    
     buttonFreezeAll.setOutlineColor(sf::Color::Black);
     buttonFreezeAll.setOutlineThickness(2);
 
@@ -472,23 +498,54 @@ void Game::drawButton(){
         BOTTOM BUTTONS
     */
 
-    float bottomY = HEIGHT - PIXEL_SIZE - buttonHeight - padding;
-
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < 1; i++){
         sf::RectangleShape buttonBottom(sf::Vector2f(buttonWidth*1.6f, buttonHeight));
         buttonBottom.setPosition(padding + i*(buttonWidth+2*padding), bottomY);
-        if(Update::freezeSelect) buttonBottom.setFillColor(sf::Color(200, 200, 100));
-        else buttonBottom.setFillColor(sf::Color(150, 150, 150));
+        buttonBottom.setFillColor(sf::Color(150, 150, 150));
         buttonBottom.setOutlineColor(sf::Color::Black);
         buttonBottom.setOutlineThickness(2);
 
         sf::Text buttonBottomText;
         buttonBottomText.setFont(font);
-        buttonBottomText.setString("DUMMY");
+        if(i == 0) buttonBottomText.setString("SCREENSHOT");
+        if(i == 1) buttonBottomText.setString("DUM");
+        if(i == 2) buttonBottomText.setString("DUM");
         buttonBottomText.setCharacterSize(defaultCharSize);
         buttonBottomText.setFillColor(sf::Color::Black);
         buttonBottomText.setPosition(buttonBottom.getPosition().x + 10, buttonBottom.getPosition().y + 10);
         window->draw(buttonBottom);
         window->draw(buttonBottomText);
     }
+}
+
+/* Screenshotting
+*/
+sf::Color noneColor {Particle::getColorByType(ParticleType::None)[0],
+                         Particle::getColorByType(ParticleType::None)[1],
+                         Particle::getColorByType(ParticleType::None)[2]};
+void Game::saveCurrentState(){
+    sf::RenderTexture renderTexture;
+    renderTexture.create(window->getSize().x, window->getSize().y);
+
+    renderTexture.clear(noneColor);
+    renderTexture.draw(particles);
+    renderTexture.display();
+
+    sf::Texture texture    = renderTexture.getTexture();
+    sf::Image   screenshot = texture.copyToImage();
+   
+    int gridTop    = UI_HEIGHT_PXS;  
+    int gridHeight = GRID_HEIGHT*PIXEL_SIZE;
+    int gridWidth  = GRID_WIDTH*PIXEL_SIZE;
+
+    sf::Image cropped;
+    cropped.create(gridWidth, gridHeight);
+
+    for (int y = 1; y < gridHeight - 1; ++y) {
+        for (int x = 1; x < gridWidth - 1; ++x) {
+            cropped.setPixel(x, y, screenshot.getPixel(x, y + gridTop));
+        }
+    }
+
+    cropped.saveToFile("../pic/grid.png");
 }

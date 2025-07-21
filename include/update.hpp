@@ -6,8 +6,6 @@ struct Surroundings;
 
 class Update{
     public:
-        static bool freezeSelect;
-
         static void update_WETSAND (Particle& self, std::vector<Particle> &grid, int i);
         static void update_SAND (Particle& self, std::vector<Particle> &grid, int i);
         static void update_WATER(Particle& self, std::vector<Particle> &grid, int i);
@@ -24,7 +22,7 @@ class Update{
         static void getPressure(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);
         static void getFriction(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);
 
-        static int getClosestMove(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i, ParticleState state);
+        static int  getClosestMove(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i, ParticleState state);
         
         static bool moreDense(Particle& self, int other, std::vector<Particle>& grid);
 

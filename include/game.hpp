@@ -9,6 +9,8 @@ class Game{
         unsigned int WIDTH;
         unsigned int HEIGHT;
 
+        bool freezeSelect;
+
         sf::RenderWindow *window;
         sf::Event            evt;
         sf::VideoMode         vm;
@@ -41,10 +43,12 @@ class Game{
         void mouseInput();
 
         bool checkIfHoverSelect(int i);
-        void selectHover       (int i);
+        void hoverSelect       (int i);
         bool checkIfStateSelect(int i);
         void hoverDisable();
-        void stateDisable();
+        void stateSelect(int i);
+
+        void saveCurrentState();
     public:
         Game();
         ~Game();

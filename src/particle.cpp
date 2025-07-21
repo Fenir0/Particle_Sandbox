@@ -4,11 +4,11 @@ int idc = 0;
 int GRID_WIDTH = 0;
 int GRID_HEIGHT = 0;
 
-const float Particle::STONE_FRICTION     = 0.6f;
-const float Particle::SAND_FRICTION      = 0.7f;
 const float Particle::GRAVITATIONAL_PULL = 0.2f;
 
-/* PLACEABLE TYPES (INTERFACE)*/
+/* PLACEABLE TYPES (INTERFACE)
+    Only those available to user
+*/
 const std::vector<std::string>                Particle::states_list 
                         {"Solid", "Fluid", "Gas"};
 const std::vector<std::vector<std::string>>   Particle::type_list 
@@ -23,6 +23,8 @@ const std::vector<std::vector<ParticleType>>  Particle::types
 const std::vector<std::vector<short>> Particle::colorSand{
     {230, 215, 160},{230, 210, 138},
     {242, 206, 134},{236, 211, 135},{244, 223, 146}};
+const std::vector<std::vector<short>> Particle::colorBurnedSand{
+    {74, 76, 78},{70, 75, 80},{80, 75, 70},{65, 75, 70},{70, 80, 65}};
 const std::vector<std::vector<short>> Particle::colorWetSand{
     {204, 191, 142},{179, 169, 130},{173, 158, 104},
     {236, 211, 135},{209, 184, 110},{187, 176, 136}};
@@ -57,21 +59,8 @@ const std::vector<std::vector<short>> Particle::colorSteam{
     {208, 197, 197}
 };
 
-/* CONSTRUCTOR*/
-Particle::Particle(ParticleType type){
-    this->type = type;
-    this->id = idc++;
-    vel_x = 0;
-    vel_y = 0;
-    cooldown = 0;
-    wetness = 0;
-    density = getDensityByType(type);
-    state = getStateByType(type);
-    color = getColorByType(type);
-}
-
 /* TYPE-RELATED LOGIC*/
-std::vector<short> Particle::getColorByType(ParticleType type){
+std::vector<short> Particle::getColorByType  (ParticleType type){
     int r;
     switch (type)
     {
@@ -107,7 +96,7 @@ std::vector<short> Particle::getColorByType(ParticleType type){
     }
     return {0, 0, 0};
 }
-ParticleState      Particle::getStateByType(ParticleType type){
+ParticleState      Particle::getStateByType  (ParticleType type){
     switch (type)
     {
     case ParticleType::None:
@@ -144,7 +133,7 @@ int                Particle::getDensityByType(ParticleType type){
     case ParticleType::Oil:
         return 180;
     case ParticleType::Lava:
-        return 190;
+        return 180;
     case ParticleType::Sand:
         return 200;
     case ParticleType::WetSand:
@@ -156,7 +145,7 @@ int                Particle::getDensityByType(ParticleType type){
     }
     return 0;
 }
-int                Particle::getTempByType(ParticleType type){
+int                Particle::getTempByType   (ParticleType type){
     switch (type)
     {
     case ParticleType::Steam:
@@ -172,7 +161,7 @@ int                Particle::getTempByType(ParticleType type){
     }
     return 0;
 }
-std::string        Particle::getTypeAsString(ParticleType type){
+std::string        Particle::getTypeAsString (ParticleType type){
     switch (type)
     {
     case ParticleType::Sand    : return "Sand";
@@ -198,9 +187,9 @@ bool Particle::isTypeAndState(ParticleType type, ParticleState state){
         if(type == ParticleType::Obsidian)  return true;
         return false;
     case ParticleState::Fluid:
+    if(type == ParticleType::Lava)   return true;
         if(type == ParticleType::Water) return true;
         if(type == ParticleType::Oil)   return true;
-        if(type == ParticleType::Lava)   return true;
         return false;
     case ParticleState::Gas:
         if(type == ParticleType::Smoke) return true;
@@ -224,23 +213,31 @@ void Particle::Update(std::vector<Particle>& grid, int i){
     }
 }
 
+/* CONSTRUCTOR*/
+Particle::Particle(ParticleType type){
+    this->type = type;
+    id = idc++;
+    cooldown = 0;
+    wetness  = 0;
+    state =   getStateByType(type);
+}
 
 /*SETTERS AND GETTERS*/
 
-void Particle::setArgs(ParticleType type, ParticleState state, 
-                        std::vector<short> color, float vel_x, float vel_y, 
+// to be called when particle changes its type
+void Particle::setArgs(ParticleType type, float vel_x, float vel_y, 
                         float pressure, float inertia, int temperature){
     this->type = type;
-    this->state = state;
-    this->color = color;
     this->vel_x = vel_x;
     this->vel_y = vel_y;
     this->pressure = pressure;
     this->inertia_x = inertia;
     this->inertia_y = inertia;
-    this->energy = pressure*(inertia_x*inertia_x+inertia_y*inertia_y)/2;
-    this->density = getDensityByType(type);
     this->temperature = temperature;
+    color   = getColorByType(type);
+    density = getDensityByType(type);
+    state   = getStateByType(type);
+    color   = getColorByType(type);
 }
 
 
@@ -254,9 +251,44 @@ ParticleType        Particle::getType(){
 ParticleState       Particle::getState(){
     return this->state;
 };
+
+int             Particle::getCooldown   (){
+    return this->cooldown;
+}
+void            Particle::coolDownTick  (int frames){
+    this->cooldown -= frames;
+}
+
+int             Particle::getDensity    (){
+    return this->density;
+}
+int             Particle::getWetness    (){
+    return this->wetness;
+}
+int             Particle::getTemperature(){
+    return this->temperature;
+}
+void            Particle::setCooldown   (int newCooldown){
+    this->cooldown = newCooldown;
+}
+void            Particle::setDensity    (int newDensity){
+    this->density = newDensity;
+}
+void            Particle::setWetness    (int newWetness){
+    this->wetness = newWetness;
+}
+void            Particle::setTemperature(int newTemperature){
+    this->temperature = newTemperature;
+}
+
+void                Particle::setColor(std::vector<short> newColor){
+    this->color = newColor;
+};
 std::vector<short>  Particle::getColor(){
     return this->color;
 };
+
+
 std::pair<float, float> Particle::getCoord(){
     return std::make_pair(std::floor(this->pos_x), std::floor(this->pos_y));
 
