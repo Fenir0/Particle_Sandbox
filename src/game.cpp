@@ -64,6 +64,8 @@ Game::~Game(){
 }
 
 void Game::initWin(){
+    sf::Image logo;
+    logo.loadFromFile("../logo.png");
     sf::ContextSettings settings;
     settings.antialiasingLevel = 0;
     calculateWindowSize();
@@ -71,6 +73,7 @@ void Game::initWin(){
     window->setSize(sf::Vector2u(WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS));
     window->setView(sf::View(sf::FloatRect(0, 0, WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS)));
     window->setVerticalSyncEnabled(true);
+    window->setIcon(logo.getSize().x,logo.getSize().y, logo.getPixelsPtr());
 }
 
 void Game::initVar(){
@@ -546,6 +549,8 @@ void Game::saveCurrentState(){
             cropped.setPixel(x, y, screenshot.getPixel(x, y + gridTop));
         }
     }
-
-    cropped.saveToFile("../pic/grid.png");
+    int i = 1;
+    while(std::filesystem::exists("../pic/screenshot"+std::to_string(i)+".png"))
+        i++;
+    cropped.saveToFile("../pic/screenshot"+std::to_string(i)+".png");
 }

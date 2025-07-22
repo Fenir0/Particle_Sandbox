@@ -2,11 +2,11 @@
 #define PARTICLE
 
 #include <cstdlib>
-#include <algorithm>
 #include <cmath>
 #include <vector>
 #include <string>
 #include <random>
+#include <filesystem>
 
 enum class ParticleType {Smoke, Sand, Water, Oil, Lava, Stone, Obsidian, None, WetSand, Steam};
 enum class ParticleState {Solid, Fluid, Gas, None};
