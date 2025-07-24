@@ -31,7 +31,6 @@ How to run the app:
 
 2:
 
-3:
 a:
 VSCode:
 Make sure that CMake and C++ extensions are installed

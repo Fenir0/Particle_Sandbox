@@ -1,6 +1,5 @@
 #include "../include/update.hpp"
 
-int idc = 0;
 int GRID_WIDTH = 0;
 int GRID_HEIGHT = 0;
 
@@ -40,10 +39,6 @@ const std::vector<std::vector<short>> Particle::colorStone{
 const std::vector<std::vector<short>> Particle::colorSmoke{
     { 15,  15,  15},{ 0,  0,  0},{ 85,  85,  85},{ 84,  88,  95}, { 40,  40, 40},
     { 0,  0,  0},{73, 80, 87},{0, 0, 0}
-};
-const std::vector<std::vector<short>> Particle::colorObsidian{
-    { 0,  0,  0},{ 10,  10,  10},{ 0,  0,  10},{ 48,  48,  48},
-    { 68, 68, 68}
 };
 const std::vector<std::vector<short>> Particle::colorLava{
     {238,  53,  53},{238,  53,  53},{238, 53, 53},
@@ -90,9 +85,6 @@ std::vector<short> Particle::getColorByType  (ParticleType type){
     case ParticleType::Steam:
         r = rand() % colorSteam.size();
         return colorSteam[r];
-    case ParticleType::Obsidian:
-        r = rand() % colorObsidian.size();
-        return colorObsidian[r];
     }
     return {0, 0, 0};
 }
@@ -105,7 +97,6 @@ ParticleState      Particle::getStateByType  (ParticleType type){
     case ParticleType::Sand:
     case ParticleType::WetSand:
     case ParticleType::Stone:
-    case ParticleType::Obsidian:
         return ParticleState::Solid;
 
     case ParticleType::Water:
@@ -128,9 +119,9 @@ int                Particle::getDensityByType(ParticleType type){
         return 70;
     case ParticleType::Steam:
         return 90;
-    case ParticleType::Water:
-        return 150;
     case ParticleType::Oil:
+        return 150;
+    case ParticleType::Water:
         return 180;
     case ParticleType::Lava:
         return 180;
@@ -140,8 +131,6 @@ int                Particle::getDensityByType(ParticleType type){
         return 200;
     case ParticleType::Stone:
         return 250;
-    case ParticleType::Obsidian:
-        return 300;
     }
     return 0;
 }
@@ -156,7 +145,6 @@ int                Particle::getTempByType   (ParticleType type){
     case ParticleType::WetSand:
     case ParticleType::Water:
     case ParticleType::Oil:
-    case ParticleType::Obsidian:
         return 0;
     }
     return 0;
@@ -170,7 +158,6 @@ std::string        Particle::getTypeAsString (ParticleType type){
     case ParticleType::Smoke   : return "Smoke";
     case ParticleType::Water   : return "Water";
     case ParticleType::Lava    : return "Lava";
-    case ParticleType::Obsidian: return "Obsidian";
     case ParticleType::Oil     : return "Oil";
     case ParticleType::Steam   : return "Steam";
     }
@@ -184,7 +171,6 @@ bool Particle::isTypeAndState(ParticleType type, ParticleState state){
     case ParticleState::Solid:
         if(type == ParticleType::Stone)     return true;
         if(type == ParticleType::Sand)      return true;
-        if(type == ParticleType::Obsidian)  return true;
         return false;
     case ParticleState::Fluid:
     if(type == ParticleType::Lava)   return true;
@@ -216,11 +202,25 @@ void Particle::Update(std::vector<Particle>& grid, int i){
 /* CONSTRUCTOR*/
 Particle::Particle(ParticleType type){
     this->type = type;
-    id = idc++;
     cooldown = 0;
     wetness  = 0;
-    state =   getStateByType(type);
+    state    = getStateByType(type);
 }
+// Particle::Particle(const Particle& other){
+//     this->type = other.type;
+//     this->pos_x = other.pos_x;
+//     this->pos_y = other.pos_y;
+//     this->vel_x = other.vel_x;
+//     this->vel_y = other.vel_y;
+//     this->pressure = other.pressure;
+//     this->inertia_x = other.inertia_x;
+//     this->inertia_y = other.inertia_y;
+//     this->temperature = other.temperature;
+//     color   = getColorByType(type);
+//     density = getDensityByType(type);
+//     state   = getStateByType(type);
+// }
+
 
 /*SETTERS AND GETTERS*/
 
@@ -237,9 +237,7 @@ void Particle::setArgs(ParticleType type, float vel_x, float vel_y,
     color   = getColorByType(type);
     density = getDensityByType(type);
     state   = getStateByType(type);
-    color   = getColorByType(type);
 }
-
 
 void Particle::setCoord(float pos_x, float pos_y){
     this->pos_x = pos_x;

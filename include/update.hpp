@@ -17,7 +17,6 @@ class Update{
 
         static void updateOnSurroundings(Surroundings& srd, Particle& self, std::vector<Particle> &grid, int i);
 
-        // Checkers
         static void getGravity (Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);
         static void getPressure(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);
         static void getFriction(Surroundings& sr, Particle& self, std::vector<Particle>& grid, int i);

@@ -31,6 +31,7 @@ class Game{
         void drawUI();
         void drawButton();
         void drawBorder();
+        void drawBrushText();
         void calculateWindowSize();
         void updateUIScaling();
 
@@ -49,6 +50,8 @@ class Game{
         void stateSelect(int i);
 
         void saveCurrentState();
+
+        void resizeGrid(bool k);
     public:
         Game();
         ~Game();
@@ -60,3 +63,4 @@ class Game{
 };
 
 #endif
+

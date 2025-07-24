@@ -143,8 +143,8 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
                 if(r%2){
                     if(grid[srd.diag_bl].getState() != ParticleState::Solid && 
                                     grid[srd.left].getState() != ParticleState::Solid){
-                        if(grid[getGridIndex(self.pos_x-1, self.pos_y+1)].getType() 
-                                == ParticleType::Oil) self.setCooldown(10);
+                        if(grid[getGridIndex(self.pos_x-1, self.pos_y+1)].getState() 
+                                == ParticleState::Fluid) self.setCooldown(10);
                         swapper(self.pos_x, self.pos_y, 
                                 self.pos_x-1, self.pos_y+1, grid);
                         return;
@@ -265,7 +265,7 @@ void Update::update_SAND(Particle &self, std::vector<Particle> &grid, int i){
 void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){ 
     self.coolDownTick(1);
     if(self.getCooldown() > 0) return;
-    self.setCooldown(std::max(5, self.getCooldown()));
+    self.setCooldown(std::max(3, self.getCooldown()));
     // In case the old position is out of borders
     adjustForBorders(self);
 
@@ -290,7 +290,7 @@ void Update::update_WETSAND(Particle &self, std::vector<Particle> &grid, int i){
     float new_y = self.pos_y + inertia_to_movement(self.inertia_y, self.getType()) + self.vel_y*(rand()%3)/5.f;
     int new_pos = getGridIndex(new_x, new_y);
 
-    self.vel_x *= 0.7f;
+    //self.vel_x *= 0.7f;
     // Get the direction (stable if not moved/not possible to move)
     Movement mv = getMovement(new_pos, srd);
 
@@ -924,7 +924,7 @@ void Update::updateOnSurroundings(Surroundings& srd, Particle& self, std::vector
                 return;
         }
         else {
-            self.setTemperature(std::max(self.getTemperature()-1, 10));
+            self.setTemperature(std::max(self.getTemperature()/5, 10));
         }
         return;
     }

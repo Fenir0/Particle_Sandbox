@@ -8,7 +8,7 @@
 #include <random>
 #include <filesystem>
 
-enum class ParticleType {Smoke, Sand, Water, Oil, Lava, Stone, Obsidian, None, WetSand, Steam};
+enum class ParticleType {Smoke, Sand, Water, Oil, Lava, Stone, None, WetSand, Steam};
 enum class ParticleState {Solid, Fluid, Gas, None};
 
 extern int GRID_WIDTH;
@@ -18,7 +18,7 @@ class Particle{
     private:
         int id;
 
-        ParticleType type;
+        ParticleType  type;
         ParticleState state;
 
         std::vector<short> color {0, 0, 0};
@@ -49,6 +49,7 @@ class Particle{
         static const float GRAVITATIONAL_PULL;
 
         Particle(ParticleType type = ParticleType::None);
+      //  Particle(const Particle& other);
 
         void Update(std::vector<Particle>& grid, int i);
 
@@ -73,9 +74,9 @@ class Particle{
         void            coolDownTick(int frames);
         void            setColor(std::vector<short> newColor);
 
-        static const std::vector<std::vector<ParticleType>> types;
-        static const std::vector<std::vector<std::string>>  type_list;
-        static const std::vector<std::string>               states_list;
+        static const std::vector<std::vector<ParticleType>>    types;
+        static const std::vector<std::vector<std::string>> type_list;
+        static const std::vector<std::string>            states_list;
         static const std::vector<std::vector<short>> colorSand;
         static const std::vector<std::vector<short>> colorBurnedSand;
         static const std::vector<std::vector<short>> colorWetSand;
@@ -84,7 +85,6 @@ class Particle{
         static const std::vector<std::vector<short>> colorSmoke;
         static const std::vector<std::vector<short>> colorOil;
         static const std::vector<std::vector<short>> colorLava;
-        static const std::vector<std::vector<short>> colorObsidian;
         static const std::vector<std::vector<short>> colorSteam;
 
         static ParticleState      getStateByType   (ParticleType type);

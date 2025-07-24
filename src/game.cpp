@@ -6,25 +6,26 @@
 */
 int FPS = 60;
 
-      int PIXEL_SIZE     = 12;
-const int PIXEL_SIZE_MIN =  2;
-const int PIXEL_SIZE_MAX = 20;
+      int PIXEL_SIZE         =  8;
+      int DEFAULT_PIXEL_SIZE =  8;
+const int PIXEL_SIZE_MIN     =  4;
+const int PIXEL_SIZE_MAX     = 32;
 
 const int UI_HEIGHT_CELL = 6;
 
-int UI_HEIGHT_PXS     = UI_HEIGHT_CELL * PIXEL_SIZE; 
-int SIM_HEIGHT_PXS    = GRID_HEIGHT    * PIXEL_SIZE; 
-int SIM_WIDTH_PXS     = GRID_WIDTH     * PIXEL_SIZE; 
-int WINDOW_HEIGHT_PXS = SIM_HEIGHT_PXS * PIXEL_SIZE; 
+int UI_HEIGHT_PXS     = UI_HEIGHT_CELL * DEFAULT_PIXEL_SIZE; 
+int SIM_HEIGHT_PXS    = GRID_HEIGHT    * DEFAULT_PIXEL_SIZE; 
+int SIM_WIDTH_PXS     = GRID_WIDTH     * DEFAULT_PIXEL_SIZE; 
+int WINDOW_HEIGHT_PXS = SIM_HEIGHT_PXS * DEFAULT_PIXEL_SIZE; 
 int WINDOW_WIDTH_PXS  = SIM_WIDTH_PXS; 
 
-float padding      = PIXEL_SIZE;
-float buttonWidth  = PIXEL_SIZE * 5;
-float buttonHeight = PIXEL_SIZE * 3;
+float padding      = DEFAULT_PIXEL_SIZE;
+float buttonWidth  = DEFAULT_PIXEL_SIZE * 5;
+float buttonHeight = DEFAULT_PIXEL_SIZE * 3;
 
 float bottomY;
 
-unsigned int defaultCharSize = 14;
+unsigned int defaultCharSize = DEFAULT_PIXEL_SIZE;
 
 bool clearSelect = false;
 
@@ -37,18 +38,21 @@ bool GasHoverSelect   = false;
 
 bool suppressClick = false;
 
+float k;
+
 void Game::calculateWindowSize(){
     updateUIScaling();
-    UI_HEIGHT_PXS     = UI_HEIGHT_CELL * PIXEL_SIZE; 
+    k = DEFAULT_PIXEL_SIZE/(float)PIXEL_SIZE;
+    UI_HEIGHT_PXS     = UI_HEIGHT_CELL * DEFAULT_PIXEL_SIZE; 
     SIM_HEIGHT_PXS    = GRID_HEIGHT    * PIXEL_SIZE; 
     SIM_WIDTH_PXS     = GRID_WIDTH     * PIXEL_SIZE; 
-    WINDOW_HEIGHT_PXS = SIM_HEIGHT_PXS + UI_HEIGHT_PXS*2+PIXEL_SIZE; 
+    WINDOW_HEIGHT_PXS = SIM_HEIGHT_PXS + UI_HEIGHT_PXS*2+DEFAULT_PIXEL_SIZE; 
     WINDOW_WIDTH_PXS  = SIM_WIDTH_PXS; 
     HEIGHT = WINDOW_HEIGHT_PXS;
     WIDTH  = WINDOW_WIDTH_PXS;
     pxs.resize(GRID_WIDTH * GRID_HEIGHT * 4);
-    bottomY = HEIGHT - PIXEL_SIZE - buttonHeight - padding;
-
+    bottomY = HEIGHT - DEFAULT_PIXEL_SIZE - buttonHeight - padding;
+    defaultCharSize = DEFAULT_PIXEL_SIZE;
 }
 
 /*
@@ -112,9 +116,10 @@ void Game::mouseInput(){
     }
     // Right click - erase
     else if(sf::Mouse::isButtonPressed(sf::Mouse::Right)){
-        sf::Vector2i mouse = sf::Mouse::getPosition(*window);
-        int mx = mouse.x / PIXEL_SIZE;
-        int my = (mouse.y - UI_HEIGHT_PXS) / PIXEL_SIZE;
+        sf::Vector2i currPos = sf::Mouse::getPosition(*window);
+        sf::Vector2f overPos = window->mapPixelToCoords(currPos); 
+        int mx = overPos.x / PIXEL_SIZE;
+        int my = (overPos.y - UI_HEIGHT_PXS) / PIXEL_SIZE;
         if(my > 0 && mx > 0 && my < GRID_HEIGHT - 1 && mx < GRID_WIDTH - 1)
             placeParticleOnScene(mx, my, ParticleType::None);
     }
@@ -163,39 +168,41 @@ void Game::update(){
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))  brushSize = std::max(0 , brushSize-1);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) freezeSelect = !freezeSelect;
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)){
-                    PIXEL_SIZE = std::min(PIXEL_SIZE_MAX, PIXEL_SIZE + 1);
-                    defaultCharSize++;
+                    DEFAULT_PIXEL_SIZE = std::min(PIXEL_SIZE_MAX, DEFAULT_PIXEL_SIZE *2);
+                    PIXEL_SIZE = std::min(PIXEL_SIZE_MAX, PIXEL_SIZE *2);
                     calculateWindowSize();
                     window->setSize(sf::Vector2u(WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS));
                     window->setView(sf::View(sf::FloatRect(0, 0, WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS)));
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)){
-                    PIXEL_SIZE = std::max(PIXEL_SIZE_MIN, PIXEL_SIZE - 1);
-                    defaultCharSize--;
+                    DEFAULT_PIXEL_SIZE = std::max(PIXEL_SIZE_MIN, DEFAULT_PIXEL_SIZE / 2);
+                    PIXEL_SIZE = std::max(PIXEL_SIZE_MIN, PIXEL_SIZE / 2);
                     calculateWindowSize();
                     window->setSize(sf::Vector2u(WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS));
                     window->setView(sf::View(sf::FloatRect(0, 0, WINDOW_WIDTH_PXS, WINDOW_HEIGHT_PXS)));
                 }
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window->close();
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::K))resizeGrid(0);
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))resizeGrid(1);
                 break;
             case sf::Event::Closed:
                 window->close();
                 break;
             case sf::Event::MouseButtonPressed:{
-                int mx = std::floor(evt.mouseButton.x / PIXEL_SIZE);
-                int my = std::floor(evt.mouseButton.y / PIXEL_SIZE);
+                int mx = std::floor(evt.mouseButton.x / DEFAULT_PIXEL_SIZE);
+                int my = std::floor(evt.mouseButton.y / DEFAULT_PIXEL_SIZE);
                 if(evt.mouseButton.button == sf::Mouse::Left){
                     for(int i1 = 0; i1 < Particle::states_list.size(); i1++){
-                        float xs = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
-                        float ys =  padding                            /PIXEL_SIZE;
+                        float xs = (padding + i1*(buttonWidth+padding))/DEFAULT_PIXEL_SIZE;
+                        float ys =  padding                            /DEFAULT_PIXEL_SIZE;
 
                         if(checkIfHoverSelect(i1)){
                             for(int i2 = 0; i2 < Particle::type_list[i1].size(); i2++){
-                                float x = (padding + i1*(buttonWidth+padding))/PIXEL_SIZE;
-                                float y = (padding + i2*buttonHeight         )/PIXEL_SIZE;
+                                float x = (padding + i1*(buttonWidth+padding))/DEFAULT_PIXEL_SIZE;
+                                float y = (padding + i2*buttonHeight         )/DEFAULT_PIXEL_SIZE;
 
-                                if(mx >= x && mx <= x + buttonWidth /PIXEL_SIZE && 
-                                   my >= y && my <= y + buttonHeight/PIXEL_SIZE){
+                                if(mx >= x && mx <= x + buttonWidth /DEFAULT_PIXEL_SIZE && 
+                                   my >= y && my <= y + buttonHeight/DEFAULT_PIXEL_SIZE){
                                     selectedType = Particle::types[i1][i2];
 
                                     stateSelect(i1);
@@ -207,8 +214,9 @@ void Game::update(){
                             }
                         }
                         // type selected, menu not yet opened
-                        else if(mx >= xs && mx <= xs + buttonWidth /PIXEL_SIZE && 
-                                my >= ys && my <= ys + buttonHeight/PIXEL_SIZE){
+                        else if(mx >= xs && mx <= xs + buttonWidth /DEFAULT_PIXEL_SIZE && 
+                                my >= ys && my <= ys + buttonHeight/DEFAULT_PIXEL_SIZE && 
+                                my >= ys && my <= ys + buttonHeight/DEFAULT_PIXEL_SIZE){
                             hoverDisable();
                             hoverSelect (i1);
                             suppressClick = true;
@@ -217,32 +225,29 @@ void Game::update(){
                 }
                 
                 // CLEAR ALL
-                float x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*3)/PIXEL_SIZE;
-                float y = padding/PIXEL_SIZE;
-                if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
-                   my >= y && my < y + buttonHeight    /PIXEL_SIZE){
+                float x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*3)/DEFAULT_PIXEL_SIZE;
+                float y = padding/DEFAULT_PIXEL_SIZE;
+                if(mx >= x && mx < x + buttonWidth*1.6 /DEFAULT_PIXEL_SIZE && 
+                   my >= y && my < y + buttonHeight    /DEFAULT_PIXEL_SIZE){
                     grid.clear();
                     grid.resize(GRID_HEIGHT*GRID_WIDTH);
                     clearSelect = true;
                 }
                 
                 // FREEZE ALL
-                x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5)/PIXEL_SIZE;
-                y = padding/PIXEL_SIZE;
-                if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
-                   my >= y && my < y + buttonHeight    /PIXEL_SIZE){
+                x = (WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5)/DEFAULT_PIXEL_SIZE;
+                y = padding/DEFAULT_PIXEL_SIZE;
+                if(mx >= x && mx < x + buttonWidth*1.6 /DEFAULT_PIXEL_SIZE && 
+                   my >= y && my < y + buttonHeight    /DEFAULT_PIXEL_SIZE){
                     freezeSelect = !freezeSelect;
                 }
                 
-                /*
-                Bottom buttons
-                */
-            
+                /* Bottom buttons */
                 for(int i = 0; i < 3; i++){
-                    x = (padding + i*(buttonWidth+2*padding))/PIXEL_SIZE;
-                    y = bottomY/PIXEL_SIZE;
-                    if(mx >= x && mx < x + buttonWidth*1.6 /PIXEL_SIZE && 
-                        my >= y && my < y + buttonHeight/PIXEL_SIZE){
+                    x = (padding + i*(buttonWidth+2*padding))/DEFAULT_PIXEL_SIZE;
+                    y = bottomY                              /DEFAULT_PIXEL_SIZE;
+                    if(mx >= x && mx < x + buttonWidth*1.6 /DEFAULT_PIXEL_SIZE && 
+                        my >= y && my < y + buttonHeight/DEFAULT_PIXEL_SIZE){
                             if(i == 0){
                                 saveCurrentState();
                             }
@@ -254,21 +259,16 @@ void Game::update(){
                             }
                     }
                 }
-
                 break;
             }
             case sf::Event::MouseButtonReleased:
-
                 suppressClick = false;
         }
     }
-    /* Ignore a click which closed the menu hovering over grid
-    */
-    if(!suppressClick) 
-        mouseInput();
+    /* Ignore a click which closed the menu hovering over grid */
+    if(!suppressClick) mouseInput();
 
-    /* Update current state
-    */
+    /* Update current state */
     if(!freezeSelect) {
         for(int i = 0; i < grid.size(); i++) {
             grid[i].Update(grid, i);
@@ -277,8 +277,8 @@ void Game::update(){
     /* Draw current state
     */
     particles.clear();
-    for(int y = 0; y < GRID_HEIGHT; y++) {
-        for(int x = 0; x < GRID_WIDTH; x++) {
+    for(int y = 1; y < GRID_HEIGHT - 1; y++) {
+        for(int x = 1; x < GRID_WIDTH - 1; x++) {
             Particle& pt = grid[x + y * GRID_WIDTH];
 
             ParticleType  type           = pt.getType();
@@ -297,6 +297,7 @@ void Game::update(){
             particles.append(sf::Vertex({px, py + PIXEL_SIZE}, c));                // bottom-left
         }
     }   
+
 }
 
 /*
@@ -356,48 +357,51 @@ void Game::render(){
     window->display();
 }
 void Game::updateUIScaling() {
-    padding      = PIXEL_SIZE * 2;
-    buttonWidth  = PIXEL_SIZE * 5;
-    buttonHeight = PIXEL_SIZE * 3;
-    UI_HEIGHT_PXS = UI_HEIGHT_CELL * (PIXEL_SIZE + 1);
+    padding      = DEFAULT_PIXEL_SIZE * 2;
+    buttonWidth  = DEFAULT_PIXEL_SIZE * 5;
+    buttonHeight = DEFAULT_PIXEL_SIZE * 3;
+    UI_HEIGHT_PXS = UI_HEIGHT_CELL * (DEFAULT_PIXEL_SIZE + 1);
 }
 
 void Game::drawUI(){
+    drawBrushText();
+    drawBorder();
+    drawButton();
+}
+void Game::drawBrushText(){
     sf::Text brushText;
     brushText.setFont(font);
     brushText.setString("Brush: " + std::to_string(brushSize*2+1));
     brushText.setCharacterSize(defaultCharSize);
     brushText.setFillColor(sf::Color::White);
-    brushText.setPosition(WINDOW_WIDTH_PXS-80, UI_HEIGHT_PXS - 20);
-
+    brushText.setPosition(WINDOW_WIDTH_PXS-DEFAULT_PIXEL_SIZE*8, UI_HEIGHT_PXS - DEFAULT_PIXEL_SIZE*2);
     window->draw(brushText);
-    drawBorder();
-    drawButton();
 }
+
 
 void Game::drawBorder(){
     sf::RectangleShape border;
     border.setFillColor(sf::Color::Black);
     
     // Top border
-    border.setSize(sf::Vector2f(WIDTH, PIXEL_SIZE));
+    border.setSize(sf::Vector2f(WIDTH, DEFAULT_PIXEL_SIZE));
     border.setPosition(0, UI_HEIGHT_PXS);
     window->draw(border);
 
     // Bottom border
-    border.setPosition(0, HEIGHT - PIXEL_SIZE);
+    border.setPosition(0, HEIGHT - DEFAULT_PIXEL_SIZE);
     window->draw(border);
 
-    border.setPosition(0, HEIGHT - UI_HEIGHT_PXS-PIXEL_SIZE*2);
+    border.setPosition(0, HEIGHT - UI_HEIGHT_PXS-DEFAULT_PIXEL_SIZE*2);
     window->draw(border);
 
     // Left border
-    border.setSize(sf::Vector2f(PIXEL_SIZE, HEIGHT));
+    border.setSize(sf::Vector2f(DEFAULT_PIXEL_SIZE, HEIGHT));
     border.setPosition(0, 0);
     window->draw(border);
 
     // Right border
-    border.setPosition(WIDTH - PIXEL_SIZE, 0);
+    border.setPosition(WIDTH - DEFAULT_PIXEL_SIZE, 0);
     window->draw(border);
 
 }
@@ -424,7 +428,7 @@ void Game::drawButton(){
 
             text.setCharacterSize(defaultCharSize);
             text.setFillColor(sf::Color::Black);
-            text.setPosition(button.getPosition().x + PIXEL_SIZE/2, button.getPosition().y + PIXEL_SIZE/2);
+            text.setPosition(button.getPosition().x + DEFAULT_PIXEL_SIZE/2, button.getPosition().y + DEFAULT_PIXEL_SIZE/2);
 
             window->draw(button);
             window->draw(text);
@@ -449,14 +453,12 @@ void Game::drawButton(){
             text.setString(Particle::type_list[i1][i2]);
             text.setCharacterSize(defaultCharSize);
             text.setFillColor(sf::Color::Black);
-            text.setPosition(button.getPosition().x + PIXEL_SIZE/2, button.getPosition().y + PIXEL_SIZE/2);
+            text.setPosition(button.getPosition().x + DEFAULT_PIXEL_SIZE/2, button.getPosition().y + PIXEL_SIZE/2);
             window->draw(button);
             window->draw(text);
         }
     }
-    /*
-        * * * CLEAR ALL  * * *
-    */
+    /* * * * CLEAR ALL  * * * */
     {
     sf::RectangleShape buttonClearAll(sf::Vector2f(buttonWidth*1.6, buttonHeight));
     buttonClearAll.setPosition(WINDOW_WIDTH_PXS-(buttonWidth+padding)*3, padding);
@@ -470,14 +472,12 @@ void Game::drawButton(){
     textClearAll.setString("CLEAR ALL");
     textClearAll.setCharacterSize(defaultCharSize);
     textClearAll.setFillColor(sf::Color::Black);
-    textClearAll.setPosition(buttonClearAll.getPosition().x + 10, buttonClearAll.getPosition().y + 10);
+    textClearAll.setPosition(buttonClearAll.getPosition().x + DEFAULT_PIXEL_SIZE/2, buttonClearAll.getPosition().y + DEFAULT_PIXEL_SIZE/2);
     window->draw(buttonClearAll);
     window->draw(textClearAll);
     }
 
-    /*
-        * * *FREEZE ALL * * *
-    */
+    /*  * * *FREEZE ALL * * * */
     {
     sf::RectangleShape buttonFreezeAll(sf::Vector2f(buttonWidth*1.6, buttonHeight));
     buttonFreezeAll.setPosition(WINDOW_WIDTH_PXS-(buttonWidth+padding)*4.5, padding);
@@ -493,7 +493,7 @@ void Game::drawButton(){
     textFreezeAll.setString("FREEZE ALL");
     textFreezeAll.setCharacterSize(defaultCharSize);
     textFreezeAll.setFillColor(sf::Color::Black);
-    textFreezeAll.setPosition(buttonFreezeAll.getPosition().x + 10, buttonFreezeAll.getPosition().y + 10);
+    textFreezeAll.setPosition(buttonFreezeAll.getPosition().x + DEFAULT_PIXEL_SIZE/2, buttonFreezeAll.getPosition().y + DEFAULT_PIXEL_SIZE/2);
     window->draw(buttonFreezeAll);
     window->draw(textFreezeAll);}   
     
@@ -511,11 +511,11 @@ void Game::drawButton(){
         sf::Text buttonBottomText;
         buttonBottomText.setFont(font);
         if(i == 0) buttonBottomText.setString("SCREENSHOT");
-        if(i == 1) buttonBottomText.setString("DUM");
-        if(i == 2) buttonBottomText.setString("DUM");
+      //  if(i == 1) buttonBottomText.setString("DUM");
+       // if(i == 2) buttonBottomText.setString("DUM");
         buttonBottomText.setCharacterSize(defaultCharSize);
         buttonBottomText.setFillColor(sf::Color::Black);
-        buttonBottomText.setPosition(buttonBottom.getPosition().x + 10, buttonBottom.getPosition().y + 10);
+        buttonBottomText.setPosition(buttonBottom.getPosition().x + DEFAULT_PIXEL_SIZE/2, buttonBottom.getPosition().y + DEFAULT_PIXEL_SIZE/2);
         window->draw(buttonBottom);
         window->draw(buttonBottomText);
     }
@@ -553,4 +553,35 @@ void Game::saveCurrentState(){
     while(std::filesystem::exists("../pic/screenshot"+std::to_string(i)+".png"))
         i++;
     cropped.saveToFile("../pic/screenshot"+std::to_string(i)+".png");
+}
+
+void Game::resizeGrid(bool scaleDown){
+    std::vector<Particle> reservedGrid = grid;
+    int newHeight = GRID_HEIGHT;
+    int newWidth  = GRID_WIDTH;
+    if(scaleDown){
+        if(PIXEL_SIZE == 2) return;
+        newHeight *= 2;
+        newWidth  *= 2;
+        PIXEL_SIZE /= 2;
+    }
+    else{
+        if(newHeight == 2 || newWidth == 2) return;
+        newHeight /= 2;
+        newWidth  /= 2;
+        PIXEL_SIZE *= 2;
+    }
+    grid.clear();
+    grid.resize(newHeight*newWidth+2);
+
+    for(int x = 0; x < std::min(newWidth, GRID_WIDTH); x++){
+        for(int y = 0; y < std::min(newHeight, GRID_HEIGHT); y++){
+            grid[x + (newHeight - 1 - y)*newWidth] = 
+                        reservedGrid[x + (GRID_HEIGHT - 1 - y) * GRID_WIDTH];
+            grid[x + (newHeight - 1 - y)*newWidth].setCoord(x, newHeight - 1 - y);
+        }
+    }
+    GRID_WIDTH  = newWidth;
+    GRID_HEIGHT = newHeight;
+    calculateWindowSize();
 }
