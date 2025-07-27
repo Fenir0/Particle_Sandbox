@@ -5,9 +5,10 @@ Built with gcc (12.2.0) and CMake (3.25.1) on Debian GNU/Linux 12
 Use:
 - Left Mouse Button to place particles and choose particle type
 - Right Mouse Button to remove particle
-- Z and X to scale down/up (also possible by grabbing window edges)
 - Down and Up to regulate brush size
 - Esc to close
+- Z/X to scale the interface
+- K/L to scale the simulation (DEMO, offset bugs, might cause a crash)
 
 Prequisitions:
 
@@ -38,7 +39,7 @@ Open the project directory from within the app (ctrl+k ctrl+o) and build using c
 Run with CTRL+SHIFT+F5
 
 b:
-Linux:
+Linux in general:
 
 Make your way into the project directory
 Run this command while inside the directory:

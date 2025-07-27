@@ -38,11 +38,8 @@ bool GasHoverSelect   = false;
 
 bool suppressClick = false;
 
-float k;
-
 void Game::calculateWindowSize(){
     updateUIScaling();
-    k = DEFAULT_PIXEL_SIZE/(float)PIXEL_SIZE;
     UI_HEIGHT_PXS     = UI_HEIGHT_CELL * DEFAULT_PIXEL_SIZE; 
     SIM_HEIGHT_PXS    = GRID_HEIGHT    * PIXEL_SIZE; 
     SIM_WIDTH_PXS     = GRID_WIDTH     * PIXEL_SIZE; 
@@ -100,9 +97,7 @@ bool Game::isRunning() const{
     return window->isOpen();
 }
 
-/*
-   Particle placement
-*/
+/* Particle placement */
 
 void Game::mouseInput(){
     // Left click - place
@@ -111,7 +106,7 @@ void Game::mouseInput(){
         sf::Vector2f overPos = window->mapPixelToCoords(currPos); 
         int mx = overPos.x / PIXEL_SIZE;
         int my = (overPos.y - UI_HEIGHT_PXS) / PIXEL_SIZE;
-        if(my > 0 && mx > 0 && my < GRID_HEIGHT - 1 && mx < GRID_WIDTH - 1)
+        if(my > 0 && mx > 0 && my < GRID_HEIGHT - Update::offset + 1 && mx < GRID_WIDTH - Update::offset)
             placeParticleOnScene(mx, my, selectedType);
     }
     // Right click - erase
@@ -120,7 +115,7 @@ void Game::mouseInput(){
         sf::Vector2f overPos = window->mapPixelToCoords(currPos); 
         int mx = overPos.x / PIXEL_SIZE;
         int my = (overPos.y - UI_HEIGHT_PXS) / PIXEL_SIZE;
-        if(my > 0 && mx > 0 && my < GRID_HEIGHT - 1 && mx < GRID_WIDTH - 1)
+        if(my > 0 && mx > 0 && my < GRID_HEIGHT - Update::offset && mx < GRID_WIDTH - Update::offset)
             placeParticleOnScene(mx, my, ParticleType::None);
     }
 }
@@ -131,7 +126,7 @@ void Game::placeParticleOnScene(int mx, int my, ParticleType type) {
             if(dx*dx + dy*dy <= brushSize*brushSize){
                 int x = mx + dx;
                 int y = my + dy;
-                if(x > 0 && x < GRID_WIDTH - 1 && y > 0 && y < GRID_HEIGHT - 1){
+                if(x >= 0 && x < GRID_WIDTH - Update::offset && y >= 0 && y < GRID_HEIGHT - Update::offset){
                     int index = Update::getGridIndex(x, y);
                     if(grid[index].getType() == ParticleType::None || 
                                    type == ParticleType::None){
@@ -163,7 +158,7 @@ void Game::update(){
     while(window->pollEvent(evt)){
         switch (evt.type)
             {
-            case sf::Event::KeyPressed:
+            case sf::Event::KeyPressed:{
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))    brushSize = std::min(10, brushSize+1);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))  brushSize = std::max(0 , brushSize-1);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) freezeSelect = !freezeSelect;
@@ -185,6 +180,7 @@ void Game::update(){
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::K))resizeGrid(0);
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))resizeGrid(1);
                 break;
+            }
             case sf::Event::Closed:
                 window->close();
                 break;
@@ -199,7 +195,7 @@ void Game::update(){
                         if(checkIfHoverSelect(i1)){
                             for(int i2 = 0; i2 < Particle::type_list[i1].size(); i2++){
                                 float x = (padding + i1*(buttonWidth+padding))/DEFAULT_PIXEL_SIZE;
-                                float y = (padding + i2*buttonHeight         )/DEFAULT_PIXEL_SIZE;
+                                float y = (padding + i2*buttonHeight         )/DEFAULT_PIXEL_SIZE - (DEFAULT_PIXEL_SIZE>8);
 
                                 if(mx >= x && mx <= x + buttonWidth /DEFAULT_PIXEL_SIZE && 
                                    my >= y && my <= y + buttonHeight/DEFAULT_PIXEL_SIZE){
@@ -215,8 +211,7 @@ void Game::update(){
                         }
                         // type selected, menu not yet opened
                         else if(mx >= xs && mx <= xs + buttonWidth /DEFAULT_PIXEL_SIZE && 
-                                my >= ys && my <= ys + buttonHeight/DEFAULT_PIXEL_SIZE && 
-                                my >= ys && my <= ys + buttonHeight/DEFAULT_PIXEL_SIZE){
+                                my >= ys && my <=  ys + buttonHeight/DEFAULT_PIXEL_SIZE - (DEFAULT_PIXEL_SIZE>8)){
                             hoverDisable();
                             hoverSelect (i1);
                             suppressClick = true;
@@ -277,10 +272,9 @@ void Game::update(){
     /* Draw current state
     */
     particles.clear();
-    for(int y = 1; y < GRID_HEIGHT - 1; y++) {
-        for(int x = 1; x < GRID_WIDTH - 1; x++) {
+    for(int y = 0; y < GRID_HEIGHT; y++) {
+        for(int x = 0; x < GRID_WIDTH; x++) {
             Particle& pt = grid[x + y * GRID_WIDTH];
-
             ParticleType  type           = pt.getType();
             ParticleState state          = pt.getState();
             std::pair<float,float> pxy   = pt.getCoord();
@@ -564,21 +558,26 @@ void Game::resizeGrid(bool scaleDown){
         newHeight *= 2;
         newWidth  *= 2;
         PIXEL_SIZE /= 2;
+        Update::offset *= 2;
     }
     else{
         if(newHeight == 2 || newWidth == 2) return;
         newHeight /= 2;
         newWidth  /= 2;
         PIXEL_SIZE *= 2;
+        Update::offset = std::max(1, Update::offset/2);
     }
     grid.clear();
-    grid.resize(newHeight*newWidth+2);
-
+    grid.resize(newHeight*newWidth);
     for(int x = 0; x < std::min(newWidth, GRID_WIDTH); x++){
         for(int y = 0; y < std::min(newHeight, GRID_HEIGHT); y++){
-            grid[x + (newHeight - 1 - y)*newWidth] = 
-                        reservedGrid[x + (GRID_HEIGHT - 1 - y) * GRID_WIDTH];
-            grid[x + (newHeight - 1 - y)*newWidth].setCoord(x, newHeight - 1 - y);
+            if(x + (newHeight  - y)*newWidth >= grid.size() ||
+                x + (GRID_HEIGHT - y) * GRID_WIDTH >= reservedGrid.size())
+                    continue;
+            grid[x + (newHeight  - y)*newWidth] = 
+                        reservedGrid[x + (GRID_HEIGHT - y) * GRID_WIDTH];
+            grid[x + (newHeight  - y)*newWidth]
+                        .setCoord(x, newHeight  - y);
         }
     }
     GRID_WIDTH  = newWidth;

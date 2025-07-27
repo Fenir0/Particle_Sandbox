@@ -1,6 +1,7 @@
 #include "../include/update.hpp"
 
 // particle used grid is [1...GRID_DIMENSION-1]
+int Update::offset = 1;
 
 struct Surroundings{
     int   above,   below,     left,   right;
@@ -8,10 +9,10 @@ struct Surroundings{
     int to_move;
 
     Surroundings(int x, int y){
-        above = y > 1               ? Update::getGridIndex(x, y - 1): -1;
-        below = y < GRID_HEIGHT - 2 ? Update::getGridIndex(x, y + 1): -1;
-        left  = x > 1               ? Update::getGridIndex(x - 1, y): -1;
-        right = x < GRID_WIDTH  - 2 ? Update::getGridIndex(x + 1, y): -1;
+        above = y > Update::offset               ? Update::getGridIndex(x, y - 1): -1;
+        below = y < GRID_HEIGHT - Update::offset ? Update::getGridIndex(x, y + 1): -1;
+        left  = x > Update::offset               ? Update::getGridIndex(x - 1, y): -1;
+        right = x < GRID_WIDTH  - Update::offset ? Update::getGridIndex(x + 1, y): -1;
 
         diag_bl = (below != -1 && left  != -1) ? left  + GRID_WIDTH : -1;
         diag_br = (below != -1 && right != -1) ? right + GRID_WIDTH : -1;
@@ -1016,8 +1017,8 @@ void Update::getPressure(Surroundings& sr, Particle&self, std::vector<Particle> 
 // @brief Apply the gravitational force
 void Update::getGravity(Surroundings& sr,Particle&self, 
                             std::vector<Particle> &grid, int i) {
-    if(self.pos_y >= GRID_HEIGHT - 1){
-        self.pos_y = GRID_HEIGHT - 1;
+    if(self.pos_y >= GRID_HEIGHT - offset){
+        self.pos_y = GRID_HEIGHT - offset;
         return;
     }
     if(self.getState() != ParticleState::None) {
@@ -1094,7 +1095,7 @@ int Update::getClosestMove(Surroundings &srd, Particle &self, std::vector<Partic
             return -1; // nowhere to go lol
         }
         bool possibleLeft = true, possibleRight = true;
-        for(int i = 1; i < GRID_WIDTH; i++){
+        for(int i = offset; i < GRID_WIDTH; i++){
             if(self.pos_x - i > 0 && possibleLeft){
                 if(grid[getGridIndex(self.pos_x - i, self.pos_y)].getState() != ParticleState::None){
                     possibleLeft = false;
@@ -1105,7 +1106,7 @@ int Update::getClosestMove(Surroundings &srd, Particle &self, std::vector<Partic
                     }
                 }
             }else possibleLeft = false;
-            if(self.pos_x + i < GRID_WIDTH - 1 && possibleRight){
+            if(self.pos_x + i < GRID_WIDTH - offset && possibleRight){
                 if(grid[getGridIndex(self.pos_x + i, self.pos_y)].getState() != ParticleState::None){
                     possibleRight = false;
                 }
@@ -1142,7 +1143,7 @@ bool Update::isSameState(std::vector<Particle>&  grid, int i, int t){
 int Update::getGridIndex(float x, float y) {
     int ix = std::floor(x);
     int iy = std::floor(y);
-    if (ix < 1 || iy < 1 || ix >= GRID_WIDTH - 1 || iy >= GRID_HEIGHT - 1){
+    if (ix < offset|| iy < offset || ix >= GRID_WIDTH - offset || iy >= GRID_HEIGHT - offset){
       //  printf("WRONG COORD\n");
         return -1;
     }

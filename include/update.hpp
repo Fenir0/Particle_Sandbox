@@ -6,6 +6,8 @@ struct Surroundings;
 
 class Update{
     public:
+        static int offset;
+
         static void update_WETSAND (Particle& self, std::vector<Particle> &grid, int i);
         static void update_SAND (Particle& self, std::vector<Particle> &grid, int i);
         static void update_WATER(Particle& self, std::vector<Particle> &grid, int i);
